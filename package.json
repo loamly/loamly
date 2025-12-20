@@ -1,0 +1,48 @@
+{
+  "name": "loamly",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Open-source AI traffic detection for websites. See what AI tells your customers — and track when they click.",
+  "author": "Loamly <hello@loamly.ai>",
+  "license": "MIT",
+  "homepage": "https://loamly.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loamly/loamly.git"
+  },
+  "bugs": {
+    "url": "https://github.com/loamly/loamly/issues"
+  },
+  "keywords": [
+    "analytics",
+    "ai-traffic",
+    "tracking",
+    "dark-traffic",
+    "chatgpt",
+    "claude",
+    "perplexity",
+    "llm",
+    "open-source",
+    "privacy-first"
+  ],
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean",
+    "publish:tracker": "cd packages/tracker && pnpm publish --access public"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "pnpm@9.0.6",
+  "engines": {
+    "node": ">=18"
+  }
+}
+

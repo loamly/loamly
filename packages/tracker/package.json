@@ -1,0 +1,67 @@
+{
+  "name": "@loamly/tracker",
+  "version": "1.6.0",
+  "description": "Open-source AI traffic detection for websites",
+  "author": "Loamly <hello@loamly.ai>",
+  "license": "MIT",
+  "homepage": "https://loamly.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loamly/loamly.git",
+    "directory": "packages/tracker"
+  },
+  "bugs": {
+    "url": "https://github.com/loamly/loamly/issues"
+  },
+  "keywords": [
+    "analytics",
+    "ai-traffic",
+    "tracking",
+    "dark-traffic",
+    "chatgpt",
+    "claude",
+    "perplexity",
+    "open-source"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "unpkg": "./dist/loamly.iife.min.global.js",
+  "jsdelivr": "./dist/loamly.iife.min.global.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./browser": "./dist/loamly.iife.min.global.js",
+    "./script": "./dist/loamly.iife.min.global.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
+

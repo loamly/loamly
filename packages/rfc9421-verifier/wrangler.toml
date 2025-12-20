@@ -1,0 +1,22 @@
+# Loamly RFC 9421 Verifier
+# Cloudflare Worker for verifying AI agent HTTP signatures
+#
+# Deploy: wrangler deploy
+# Dev: wrangler dev
+
+name = "loamly-rfc9421-verifier"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Environment variables (set these in Cloudflare dashboard)
+# LOAMLY_WORKSPACE_ID = "your-workspace-id"
+# LOAMLY_WORKSPACE_API_KEY = "your-api-key"
+# LOAMLY_INGEST_URL = "https://app.loamly.ai/api/ingest/edge-visit"
+
+[vars]
+# Default ingest URL (can be overridden)
+LOAMLY_INGEST_URL = "https://app.loamly.ai/api/ingest/edge-visit"
+
+# Optional: Forward requests even without signatures (for debugging)
+# FORWARD_UNSIGNED = "true"
+
