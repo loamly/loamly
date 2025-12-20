@@ -100,3 +100,4 @@ Open a [Discussion](https://github.com/loamly/loamly/discussions) or reach out a
 
 Thank you for making Loamly better! 🙌
 
+

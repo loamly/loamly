@@ -28,3 +28,4 @@ export { detectAIFromReferrer, detectAIFromUTM } from './detection/referrer'
 // Configuration
 export { VERSION, AI_PLATFORMS, AI_BOT_PATTERNS } from './config'
 
+

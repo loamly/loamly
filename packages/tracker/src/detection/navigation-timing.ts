@@ -114,3 +114,4 @@ function calculateTimingVariance(nav: PerformanceNavigationTiming): number {
   return Math.sqrt(variance)
 }
 
+

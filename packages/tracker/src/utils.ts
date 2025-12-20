@@ -127,3 +127,4 @@ export function sendBeacon(url: string, data: unknown): boolean {
   return false
 }
 
+

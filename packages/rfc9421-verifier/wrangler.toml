@@ -20,3 +20,4 @@ LOAMLY_INGEST_URL = "https://app.loamly.ai/api/ingest/edge-visit"
 # Optional: Forward requests even without signatures (for debugging)
 # FORWARD_UNSIGNED = "true"
 
+
