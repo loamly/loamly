@@ -77,6 +77,20 @@ export interface BehavioralMLResult {
   sessionDurationMs: number
 }
 
+/**
+ * Focus/Blur analysis result
+ */
+export interface FocusBlurMLResult {
+  /** Navigation pattern type */
+  navType: 'likely_paste' | 'likely_click' | 'unknown'
+  /** Confidence score (0-1) */
+  confidence: number
+  /** Detection signals */
+  signals: string[]
+  /** Time to first interaction in ms */
+  timeToFirstInteractionMs: number | null
+}
+
 export interface LoamlyTracker {
   /** Initialize the tracker with configuration */
   init: (config: LoamlyConfig) => void
@@ -107,6 +121,9 @@ export interface LoamlyTracker {
   
   /** Get behavioral ML classification result */
   getBehavioralML: () => BehavioralMLResult | null
+  
+  /** Get focus/blur analysis result */
+  getFocusBlur: () => FocusBlurMLResult | null
   
   /** Check if tracker is initialized */
   isInitialized: () => boolean

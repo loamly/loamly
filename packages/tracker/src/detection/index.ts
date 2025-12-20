@@ -15,3 +15,9 @@ export {
   type BehavioralSignal,
   type BehavioralClassificationResult 
 } from './behavioral-classifier'
+export {
+  FocusBlurAnalyzer,
+  createFocusBlurAnalyzer,
+  type FocusBlurEvent,
+  type FocusBlurResult
+} from './focus-blur'

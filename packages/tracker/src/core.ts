@@ -13,6 +13,10 @@ import {
   BehavioralClassifier, 
   type BehavioralClassificationResult 
 } from './detection/behavioral-classifier'
+import {
+  FocusBlurAnalyzer,
+  type FocusBlurResult
+} from './detection/focus-blur'
 import { 
   getVisitorId, 
   getSessionId, 
@@ -27,7 +31,8 @@ import type {
   TrackEventOptions, 
   NavigationTiming,
   AIDetectionResult,
-  BehavioralMLResult
+  BehavioralMLResult,
+  FocusBlurMLResult
 } from './types'
 
 // State
@@ -41,6 +46,8 @@ let navigationTiming: NavigationTiming | null = null
 let aiDetection: AIDetectionResult | null = null
 let behavioralClassifier: BehavioralClassifier | null = null
 let behavioralMLResult: BehavioralMLResult | null = null
+let focusBlurAnalyzer: FocusBlurAnalyzer | null = null
+let focusBlurResult: FocusBlurMLResult | null = null
 
 /**
  * Debug logger
@@ -113,6 +120,17 @@ function init(userConfig: LoamlyConfig = {}): void {
   behavioralClassifier = new BehavioralClassifier(10000) // 10s min session
   behavioralClassifier.setOnClassify(handleBehavioralClassification)
   setupBehavioralMLTracking()
+  
+  // Initialize focus/blur analyzer (LOA-182)
+  focusBlurAnalyzer = new FocusBlurAnalyzer()
+  focusBlurAnalyzer.initTracking()
+  
+  // Analyze focus/blur after 5 seconds
+  setTimeout(() => {
+    if (focusBlurAnalyzer) {
+      handleFocusBlurAnalysis(focusBlurAnalyzer.analyze())
+    }
+  }, 5000)
   
   log('Initialization complete')
 }
@@ -453,6 +471,7 @@ function handleBehavioralClassification(result: BehavioralClassificationResult):
     session_duration_ms: result.sessionDurationMs,
     navigation_timing: navigationTiming,
     ai_detection: aiDetection,
+    focus_blur: focusBlurResult,
   })
   
   // If AI-influenced detected with high confidence, update AI detection
@@ -463,6 +482,43 @@ function handleBehavioralClassification(result: BehavioralClassificationResult):
       method: 'behavioral',
     }
     log('AI detection updated from behavioral ML:', aiDetection)
+  }
+}
+
+/**
+ * Handle focus/blur analysis result (LOA-182)
+ */
+function handleFocusBlurAnalysis(result: FocusBlurResult): void {
+  log('Focus/blur analysis:', result)
+  
+  // Store result
+  focusBlurResult = {
+    navType: result.nav_type,
+    confidence: result.confidence,
+    signals: result.signals,
+    timeToFirstInteractionMs: result.time_to_first_interaction_ms,
+  }
+  
+  // Send to backend
+  sendBehavioralEvent('focus_blur_analysis', {
+    nav_type: result.nav_type,
+    confidence: result.confidence,
+    signals: result.signals,
+    time_to_first_interaction_ms: result.time_to_first_interaction_ms,
+    sequence_length: result.sequence.length,
+  })
+  
+  // If paste pattern detected with confidence, update AI detection
+  if (result.nav_type === 'likely_paste' && result.confidence >= 0.4) {
+    // Only update if no stronger detection exists
+    if (!aiDetection || aiDetection.confidence < result.confidence) {
+      aiDetection = {
+        isAI: true,
+        confidence: result.confidence,
+        method: 'behavioral',
+      }
+      log('AI detection updated from focus/blur analysis:', aiDetection)
+    }
   }
 }
 
@@ -502,6 +558,13 @@ function getBehavioralMLResult(): BehavioralMLResult | null {
 }
 
 /**
+ * Get focus/blur analysis result
+ */
+function getFocusBlurResult(): FocusBlurMLResult | null {
+  return focusBlurResult
+}
+
+/**
  * Check if initialized
  */
 function isTrackerInitialized(): boolean {
@@ -521,6 +584,8 @@ function reset(): void {
   aiDetection = null
   behavioralClassifier = null
   behavioralMLResult = null
+  focusBlurAnalyzer = null
+  focusBlurResult = null
   
   try {
     sessionStorage.removeItem('loamly_session')
@@ -552,6 +617,7 @@ export const loamly: LoamlyTracker = {
   getAIDetection: getAIDetectionResult,
   getNavigationTiming: getNavigationTimingResult,
   getBehavioralML: getBehavioralMLResult,
+  getFocusBlur: getFocusBlurResult,
   isInitialized: isTrackerInitialized,
   reset,
   debug: setDebug,
