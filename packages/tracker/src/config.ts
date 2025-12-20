@@ -3,7 +3,7 @@
  * @module @loamly/tracker
  */
 
-export const VERSION = '1.6.0'
+export const VERSION = '1.7.0'
 
 export const DEFAULT_CONFIG = {
   apiHost: 'https://app.loamly.ai',

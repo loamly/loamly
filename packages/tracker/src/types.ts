@@ -59,6 +59,24 @@ export interface AIDetectionResult {
   method: 'referrer' | 'timing' | 'behavioral' | 'temporal' | 'unknown'
 }
 
+/**
+ * Behavioral ML classification result
+ */
+export interface BehavioralMLResult {
+  /** Classification result */
+  classification: 'human' | 'ai_influenced' | 'uncertain'
+  /** Probability of human behavior (0-1) */
+  humanProbability: number
+  /** Probability of AI-influenced behavior (0-1) */
+  aiProbability: number
+  /** Confidence in classification */
+  confidence: number
+  /** Behavioral signals detected */
+  signals: string[]
+  /** Session duration when classified */
+  sessionDurationMs: number
+}
+
 export interface LoamlyTracker {
   /** Initialize the tracker with configuration */
   init: (config: LoamlyConfig) => void
@@ -86,6 +104,9 @@ export interface LoamlyTracker {
   
   /** Get navigation timing analysis */
   getNavigationTiming: () => NavigationTiming | null
+  
+  /** Get behavioral ML classification result */
+  getBehavioralML: () => BehavioralMLResult | null
   
   /** Check if tracker is initialized */
   isInitialized: () => boolean

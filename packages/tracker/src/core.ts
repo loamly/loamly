@@ -10,6 +10,10 @@ import { VERSION, DEFAULT_CONFIG } from './config'
 import { detectNavigationType } from './detection/navigation-timing'
 import { detectAIFromReferrer, detectAIFromUTM } from './detection/referrer'
 import { 
+  BehavioralClassifier, 
+  type BehavioralClassificationResult 
+} from './detection/behavioral-classifier'
+import { 
   getVisitorId, 
   getSessionId, 
   extractUTMParams, 
@@ -22,7 +26,8 @@ import type {
   LoamlyTracker, 
   TrackEventOptions, 
   NavigationTiming,
-  AIDetectionResult 
+  AIDetectionResult,
+  BehavioralMLResult
 } from './types'
 
 // State
@@ -34,6 +39,8 @@ let sessionId: string | null = null
 let sessionStartTime: number | null = null
 let navigationTiming: NavigationTiming | null = null
 let aiDetection: AIDetectionResult | null = null
+let behavioralClassifier: BehavioralClassifier | null = null
+let behavioralMLResult: BehavioralMLResult | null = null
 
 /**
  * Debug logger
@@ -101,6 +108,11 @@ function init(userConfig: LoamlyConfig = {}): void {
   if (!userConfig.disableBehavioral) {
     setupBehavioralTracking()
   }
+  
+  // Initialize behavioral ML classifier (LOA-180)
+  behavioralClassifier = new BehavioralClassifier(10000) // 10s min session
+  behavioralClassifier.setOnClassify(handleBehavioralClassification)
+  setupBehavioralMLTracking()
   
   log('Initialization complete')
 }
@@ -343,6 +355,118 @@ function sendBehavioralEvent(eventType: string, data: Record<string, unknown>): 
 }
 
 /**
+ * Set up behavioral ML signal collection (LOA-180)
+ * Collects mouse, scroll, and interaction signals for Naive Bayes classification
+ */
+function setupBehavioralMLTracking(): void {
+  if (!behavioralClassifier) return
+  
+  // Mouse movement tracking (sampled for performance)
+  let mouseSampleCount = 0
+  document.addEventListener('mousemove', (e) => {
+    mouseSampleCount++
+    // Sample every 10th event for performance
+    if (mouseSampleCount % 10 === 0 && behavioralClassifier) {
+      behavioralClassifier.recordMouse(e.clientX, e.clientY)
+    }
+  }, { passive: true })
+  
+  // Click tracking
+  document.addEventListener('click', () => {
+    if (behavioralClassifier) {
+      behavioralClassifier.recordClick()
+    }
+  }, { passive: true })
+  
+  // Scroll tracking for ML (separate from milestone-based)
+  let lastScrollY = 0
+  document.addEventListener('scroll', () => {
+    const currentY = window.scrollY
+    if (Math.abs(currentY - lastScrollY) > 50 && behavioralClassifier) {
+      lastScrollY = currentY
+      behavioralClassifier.recordScroll(currentY)
+    }
+  }, { passive: true })
+  
+  // Focus/blur tracking
+  document.addEventListener('focusin', (e) => {
+    if (behavioralClassifier) {
+      behavioralClassifier.recordFocusBlur('focus')
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        behavioralClassifier.recordFormStart(target.id || target.getAttribute('name') || 'unknown')
+      }
+    }
+  }, { passive: true })
+  
+  document.addEventListener('focusout', (e) => {
+    if (behavioralClassifier) {
+      behavioralClassifier.recordFocusBlur('blur')
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        behavioralClassifier.recordFormEnd(target.id || target.getAttribute('name') || 'unknown')
+      }
+    }
+  }, { passive: true })
+  
+  // Force classification on page unload
+  window.addEventListener('beforeunload', () => {
+    if (behavioralClassifier && !behavioralClassifier.hasClassified()) {
+      const result = behavioralClassifier.forceClassify()
+      if (result) {
+        handleBehavioralClassification(result)
+      }
+    }
+  })
+  
+  // Also try to classify after 30 seconds as backup
+  setTimeout(() => {
+    if (behavioralClassifier && !behavioralClassifier.hasClassified()) {
+      behavioralClassifier.forceClassify()
+    }
+  }, 30000)
+}
+
+/**
+ * Handle behavioral ML classification result
+ */
+function handleBehavioralClassification(result: BehavioralClassificationResult): void {
+  log('Behavioral ML classification:', result)
+  
+  // Store result
+  behavioralMLResult = {
+    classification: result.classification,
+    humanProbability: result.humanProbability,
+    aiProbability: result.aiProbability,
+    confidence: result.confidence,
+    signals: result.signals,
+    sessionDurationMs: result.sessionDurationMs,
+  }
+  
+  // Send to backend
+  sendBehavioralEvent('ml_classification', {
+    classification: result.classification,
+    human_probability: result.humanProbability,
+    ai_probability: result.aiProbability,
+    confidence: result.confidence,
+    signals: result.signals,
+    session_duration_ms: result.sessionDurationMs,
+    navigation_timing: navigationTiming,
+    ai_detection: aiDetection,
+  })
+  
+  // If AI-influenced detected with high confidence, update AI detection
+  if (result.classification === 'ai_influenced' && result.confidence >= 0.7) {
+    aiDetection = {
+      isAI: true,
+      confidence: result.confidence,
+      method: 'behavioral',
+    }
+    log('AI detection updated from behavioral ML:', aiDetection)
+  }
+}
+
+/**
  * Get current session ID
  */
 function getCurrentSessionId(): string | null {
@@ -371,6 +495,13 @@ function getNavigationTimingResult(): NavigationTiming | null {
 }
 
 /**
+ * Get behavioral ML classification result
+ */
+function getBehavioralMLResult(): BehavioralMLResult | null {
+  return behavioralMLResult
+}
+
+/**
  * Check if initialized
  */
 function isTrackerInitialized(): boolean {
@@ -388,6 +519,8 @@ function reset(): void {
   sessionStartTime = null
   navigationTiming = null
   aiDetection = null
+  behavioralClassifier = null
+  behavioralMLResult = null
   
   try {
     sessionStorage.removeItem('loamly_session')
@@ -418,6 +551,7 @@ export const loamly: LoamlyTracker = {
   getVisitorId: getCurrentVisitorId,
   getAIDetection: getAIDetectionResult,
   getNavigationTiming: getNavigationTimingResult,
+  getBehavioralML: getBehavioralMLResult,
   isInitialized: isTrackerInitialized,
   reset,
   debug: setDebug,
