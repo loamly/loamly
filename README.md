@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="https://loamly.ai/logo.svg" alt="Loamly" width="120" />
+  <a href="https://loamly.ai">
+    <img src="https://loamly.ai/loamly-coloured-logo.svg" alt="Loamly" width="140" />
+  </a>
 </p>
 
 <h1 align="center">Loamly</h1>
@@ -28,43 +30,42 @@
 
 ## The Problem
 
-When users ask ChatGPT *"What's the best project management tool?"* and copy the recommended URL:
+When users copy a URL from ChatGPT, Claude, or Perplexity:
 
-- ❌ **No referrer header** — browser security blocks it
-- ❌ **No UTM parameters** — AI doesn't add them
-- ❌ **Google Analytics shows "Direct Traffic"** — complete blind spot
+- No referrer header (browser security blocks it)
+- No UTM parameters (AI doesn't add them)
+- Google Analytics shows "Direct Traffic"
 
-**You're invisible to 15-30% of your traffic** that comes from AI conversations.
+This traffic is invisible. For many sites, it's 15-30% of visitors.
 
 ## The Solution
 
-Loamly uses **6 revolutionary detection methods** to identify AI-referred traffic with **75-85% accuracy**:
+Loamly detects AI-referred traffic using multiple signals:
 
-| Method | Accuracy | Description |
-|--------|----------|-------------|
-| 🔍 **Referrer Detection** | 95%+ | Catches traffic from AI platforms that send referrers |
-| ⏱️ **Navigation Timing API** | 65-72% | Detects paste vs click behavior patterns |
-| 🤖 **RFC 9421 Verification** | 99%+ | Cryptographic verification of AI agent signatures |
-| 📋 **Zero-Party Surveys** | 95%+ | Asks users "How did you find us?" |
-| 🧠 **Behavioral ML** | 60-75% | AI-referred users behave differently |
-| 🔗 **Temporal Matching** | 65-89% | Correlates AI bot crawls with human visits |
+| Method | Accuracy | How it works |
+|--------|----------|--------------|
+| Navigation Timing API | 65-78% | Paste vs click detection |
+| Sec-Fetch Headers | 62-74% | Browser header analysis |
+| Behavioral ML | 75-90% | Mouse/scroll pattern classification |
+| Focus/Blur Analysis | 55-65% | Tab switching patterns |
+| Temporal Matching | 70-85% | Correlates bot crawls with visits |
+| Referrer Detection | 95%+ | When AI platforms send referrers |
+
+Combined accuracy: **~90%** for AI-influenced traffic.
 
 ## Packages
 
 | Package | Description | npm |
 |---------|-------------|-----|
 | [`@loamly/tracker`](./packages/tracker) | JavaScript tracker for websites | [![npm](https://img.shields.io/npm/v/@loamly/tracker.svg)](https://www.npmjs.com/package/@loamly/tracker) |
-| [`@loamly/rfc9421-verifier`](./packages/rfc9421-verifier) | Cloudflare Worker for AI agent signature verification | — |
+| [`@loamly/rfc9421-verifier`](./packages/rfc9421-verifier) | Cloudflare Worker for AI agent verification | — |
 
 ## Quick Start
 
-### Script Tag (Easiest)
+### Script Tag
 
 ```html
-<script 
-  src="https://unpkg.com/@loamly/tracker" 
-  data-api-key="your-api-key"
-></script>
+<script defer data-domain="your-site.com" src="https://app.loamly.ai/t.js"></script>
 ```
 
 ### NPM
@@ -74,80 +75,54 @@ npm install @loamly/tracker
 ```
 
 ```typescript
-import loamly from '@loamly/tracker'
+import { loamly } from '@loamly/tracker'
 
-loamly.init({ apiKey: 'your-api-key' })
-
-// Track events
+loamly.init({ domain: 'your-site.com' })
 loamly.track('signup_started')
-
-// Track conversions
 loamly.conversion('purchase', 99.99)
 ```
 
 ### Self-Hosting
 
-You can self-host everything. See our [self-hosting guide](https://loamly.ai/docs/self-hosting).
+You can self-host. See the [self-hosting guide](https://loamly.ai/docs/self-hosting).
 
 ## How It Works
 
-### Navigation Timing Detection
+### Navigation Timing
 
-When users **paste** a URL (common after copying from AI chat), the browser reveals distinctive timing patterns:
+When users paste a URL (common after copying from AI), the browser's Performance API shows different timing patterns than clicking a link.
 
-```
-Paste Navigation:           Click Navigation:
-navigationStart → 0ms       navigationStart → 0ms
-fetchStart → ~1ms           fetchStart → ~15ms
-(almost instant)            (delayed warmup)
-```
+### Behavioral ML
 
-### RFC 9421 Signature Verification
-
-ChatGPT's browsing agents sign their requests using HTTP Message Signatures (RFC 9421). Our Cloudflare Worker cryptographically verifies these signatures — 99%+ accuracy for verified AI agents.
+AI-referred visitors behave differently: slower scroll, longer time-to-first-click, different reading patterns. A lightweight Naive Bayes classifier (~2KB) runs client-side.
 
 ### Temporal Matching
 
-When an AI bot crawls your site, we record it. When a human visits the same URL within minutes, we probabilistically attribute the visit to AI using Bayesian inference.
+We record when AI bots crawl your site. When a human visits the same URL within minutes, we probabilistically attribute it using Bayesian inference.
 
-## Privacy & Compliance
+## Privacy
 
-- 🍪 **Cookie-free** — Uses sessionStorage
-- 📍 **No IP tracking** — IPs are not stored
-- 🔒 **GDPR compliant** — No personal data by default
-- ✅ **No consent banner needed** — For basic analytics
+- Cookie-free (uses sessionStorage)
+- No IP storage
+- GDPR compliant by default
+- No consent banner needed for basic analytics
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Your Website                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  <script src="@loamly/tracker">                     │    │
-│  │  - Navigation Timing detection                      │    │
-│  │  - Behavioral signals                               │    │
-│  │  - Event tracking                                   │    │
-│  └─────────────────────────────────────────────────────┘    │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│               Cloudflare Edge (Optional)                     │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  @loamly/rfc9421-verifier                           │    │
-│  │  - Verifies AI agent signatures                     │    │
-│  │  - Forwards to your backend                         │    │
-│  └─────────────────────────────────────────────────────┘    │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Loamly Platform                           │
-│  - Temporal matching (Bayesian)                             │
-│  - Dashboard & visualization                                │
-│  - AI brand monitoring                                      │
-│  - Historical data                                          │
-└─────────────────────────────────────────────────────────────┘
+Your Website
+└── <script src="app.loamly.ai/t.js">
+    ├── Navigation Timing detection
+    ├── Behavioral ML classification  
+    ├── Focus/Blur analysis
+    └── Event tracking
+              │
+              ▼
+Loamly Platform (or self-hosted)
+├── Temporal matching (Bayesian)
+├── Bot crawl correlation
+├── Dashboard
+└── AI brand monitoring
 ```
 
 ## Contributing
@@ -171,9 +146,8 @@ pnpm dev
 
 ## Community
 
-- 💬 [GitHub Discussions](https://github.com/loamly/loamly/discussions) — Questions & ideas
-- 🐛 [GitHub Issues](https://github.com/loamly/loamly/issues) — Bug reports
-- 🐦 [Twitter](https://twitter.com/loamly) — Updates
+- [GitHub Discussions](https://github.com/loamly/loamly/discussions) — Questions & ideas
+- [GitHub Issues](https://github.com/loamly/loamly/issues) — Bug reports
 
 ## License
 
@@ -182,11 +156,6 @@ MIT © [Loamly](https://loamly.ai)
 ---
 
 <p align="center">
-  <strong>Built with ❤️ for the AI era.</strong>
-</p>
-
-<p align="center">
   <a href="https://loamly.ai">loamly.ai</a>
 </p>
-
 
