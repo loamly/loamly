@@ -1,6 +1,6 @@
 {
   "name": "@loamly/tracker",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Open-source AI traffic detection for websites",
   "author": "Loamly <hello@loamly.ai>",
   "license": "MIT",

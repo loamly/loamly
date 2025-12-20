@@ -338,7 +338,8 @@ export class BehavioralClassifier {
    */
   private extractSignals(): BehavioralSignal[] {
     const signals: BehavioralSignal[] = []
-    const sessionDuration = Date.now() - this.data.startTime
+    // Session duration available for future enhancements
+    // const sessionDuration = Date.now() - this.data.startTime
     
     // Time to first click
     if (this.data.firstClickTime !== null) {
@@ -458,9 +459,10 @@ export class BehavioralClassifier {
   /**
    * Add context signals (set by tracker from external data)
    */
-  addContextSignal(signal: BehavioralSignal): void {
+  addContextSignal(_signal: BehavioralSignal): void {
     // These will be picked up on next classification
     // For now, we'll handle them in the classify method
+    // TODO: Store signals for next classification run
   }
 
   /**
