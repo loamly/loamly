@@ -2,10 +2,24 @@
  * Loamly RFC 9421 Verifier
  * 
  * Cloudflare Worker for verifying AI agent HTTP signatures.
- * Supports ChatGPT, Claude, Perplexity, and Google Gemini.
+ * Implements the RFC 9421 HTTP Message Signatures standard.
+ * 
+ * Supported AI Agents:
+ * - ChatGPT / OpenAI Operator (RFC 9421 Ed25519 signatures)
+ * - Perplexity / PerplexityBot (User-Agent detection)
+ * - Claude / Anthropic (User-Agent detection)
+ * - Google Gemini / Google-Extended (User-Agent detection)
+ * 
+ * Detection tiers:
+ * 1. RFC 9421 cryptographic verification (gold standard, 100% accuracy)
+ * 2. Embedded Ed25519 key verification (fallback for WAF blocks)
+ * 3. Probabilistic User-Agent matching (fallback)
  * 
  * @module @loamly/rfc9421-verifier
+ * @version 1.0.0
  * @license MIT
+ * @see https://github.com/loamly/loamly
+ * @see https://datatracker.ietf.org/doc/html/rfc9421
  */
 
 import { verify } from 'web-bot-auth';

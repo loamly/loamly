@@ -1,9 +1,12 @@
 /**
  * Loamly Tracker Configuration
+ * 
  * @module @loamly/tracker
+ * @license MIT
+ * @see https://github.com/loamly/loamly
  */
 
-export const VERSION = '1.7.0'
+export const VERSION = '1.8.0'
 
 export const DEFAULT_CONFIG = {
   apiHost: 'https://app.loamly.ai',
