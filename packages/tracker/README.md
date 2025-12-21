@@ -23,10 +23,10 @@ When users copy URLs from ChatGPT, Claude, or Perplexity:
 
 Loamly detects AI-referred traffic using multiple methods:
 
-| Method | Accuracy | Description |
-|--------|----------|-------------|
-| **Managed Proxy** | 100% | RFC 9421 cryptographic verification |
-| **Cloudflare Worker** | 100% | Self-hosted RFC 9421 verification |
+| Method | Accuracy | Package |
+|--------|----------|---------|
+| **Managed Proxy** | 100% | [loamly.ai/docs/security](https://loamly.ai/docs/security) |
+| **Edge Detection** | 100% | [`@loamly/edge`](https://github.com/loamly/loamly/tree/main/packages/edge) |
 | **JavaScript Tracker** | 75-90% | This package |
 
 This tracker provides client-side detection using:

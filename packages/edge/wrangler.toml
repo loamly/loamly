@@ -1,0 +1,17 @@
+# Loamly Edge
+# Cloudflare Worker for detecting AI bots visiting your website
+#
+# Deploy: wrangler deploy
+# Dev: wrangler dev
+
+name = "loamly-edge"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Environment variables (set these in Cloudflare dashboard or via wrangler secret)
+# LOAMLY_WORKSPACE_ID = "your-workspace-id"
+# LOAMLY_WORKSPACE_API_KEY = "your-api-key"
+
+[vars]
+# Default ingest URL (can be overridden)
+LOAMLY_INGEST_URL = "https://app.loamly.ai/api/ingest/edge-visit"

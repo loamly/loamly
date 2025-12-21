@@ -1,22 +1,25 @@
 {
-  "name": "@loamly/rfc9421-verifier",
-  "version": "1.0.3",
-  "description": "Cloudflare Worker for RFC 9421 HTTP Message Signatures verification - detect AI agents like ChatGPT",
+  "name": "@loamly/edge",
+  "version": "2.0.0",
+  "description": "Detect AI bots visiting your website. Cloudflare Worker for 100% accurate AI traffic detection.",
   "author": "Loamly <hello@loamly.ai>",
   "license": "MIT",
   "homepage": "https://loamly.ai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/loamly/loamly.git",
-    "directory": "packages/rfc9421-verifier"
+    "directory": "packages/edge"
   },
   "keywords": [
+    "ai-detection",
+    "chatgpt",
+    "claude",
+    "perplexity",
+    "ai-bots",
+    "ai-crawlers",
     "cloudflare",
     "worker",
-    "rfc9421",
-    "http-signatures",
-    "chatgpt",
-    "ai-detection"
+    "edge"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -35,5 +38,3 @@
     "web-bot-auth": "^0.1.1"
   }
 }
-
-

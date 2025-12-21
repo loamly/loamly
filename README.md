@@ -17,8 +17,8 @@
 
 <p align="center">
   <a href="https://github.com/loamly/loamly/stargazers"><img src="https://img.shields.io/github/stars/loamly/loamly?style=social" alt="GitHub stars"></a>
+  <a href="https://www.npmjs.com/package/@loamly/edge"><img src="https://img.shields.io/npm/v/@loamly/edge.svg" alt="npm edge"></a>
   <a href="https://www.npmjs.com/package/@loamly/tracker"><img src="https://img.shields.io/npm/v/@loamly/tracker.svg" alt="npm tracker"></a>
-  <a href="https://www.npmjs.com/package/@loamly/rfc9421-verifier"><img src="https://img.shields.io/npm/v/@loamly/rfc9421-verifier.svg" alt="npm verifier"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -71,8 +71,8 @@ Loamly offers multiple deployment options based on your needs:
 
 | Package | Description | npm |
 |---------|-------------|-----|
+| [`@loamly/edge`](./packages/edge) | Detect AI bots at the edge (Cloudflare Worker) | [![npm](https://img.shields.io/npm/v/@loamly/edge.svg)](https://www.npmjs.com/package/@loamly/edge) |
 | [`@loamly/tracker`](./packages/tracker) | JavaScript tracker for websites | [![npm](https://img.shields.io/npm/v/@loamly/tracker.svg)](https://www.npmjs.com/package/@loamly/tracker) |
-| [`@loamly/rfc9421-verifier`](./packages/rfc9421-verifier) | Cloudflare Worker for signature verification | [![npm](https://img.shields.io/npm/v/@loamly/rfc9421-verifier.svg)](https://www.npmjs.com/package/@loamly/rfc9421-verifier) |
 
 ## Quick Start
 
@@ -88,11 +88,11 @@ We handle SSL (Let's Encrypt), RFC 9421 verification, and proxying to your origi
 
 ### Option 2: Cloudflare Worker (100% Accuracy, Self-Hosted)
 
-Deploy our RFC 9421 verifier to your Cloudflare account:
+Deploy our edge detector to your Cloudflare account:
 
 ```bash
 git clone https://github.com/loamly/loamly.git
-cd loamly/packages/rfc9421-verifier
+cd loamly/packages/edge
 
 # Set your secrets
 npx wrangler secret put LOAMLY_WORKSPACE_ID
