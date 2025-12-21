@@ -12,7 +12,7 @@ importers:
         specifier: ^2.0.0
         version: 2.7.0
 
-  packages/rfc9421-verifier:
+  packages/edge:
     dependencies:
       web-bot-auth:
         specifier: ^0.1.1

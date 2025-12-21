@@ -34,8 +34,8 @@ pnpm dev
 ```
 loamly/
 ├── packages/
-│   ├── tracker/          # @loamly/tracker - JavaScript tracker
-│   └── rfc9421-verifier/ # Cloudflare Worker for signature verification
+│   ├── edge/             # @loamly/edge - AI bot detection at the edge
+│   └── tracker/          # @loamly/tracker - JavaScript tracker
 ├── .github/workflows/    # CI/CD
 ├── package.json          # Root workspace config
 ├── pnpm-workspace.yaml   # pnpm workspace config
@@ -68,13 +68,14 @@ The JavaScript tracker is the core of Loamly. When contributing:
 - Test in multiple browsers
 - Ensure privacy-first approach (no cookies, no PII)
 
-### @loamly/rfc9421-verifier
+### @loamly/edge
 
-The Cloudflare Worker for signature verification. When contributing:
+The Cloudflare Worker for AI bot detection. When contributing:
 
-- Test with Wrangler locally
-- Ensure cryptographic operations are correct
-- Keep latency minimal
+- Test with Wrangler locally: `cd packages/edge && pnpm dev`
+- Ensure cryptographic operations are correct (RFC 9421 signatures)
+- Keep latency minimal (verification happens in parallel)
+- Test all detection methods: signatures, User-Agent patterns, behavioral
 
 ## Pull Request Process
 

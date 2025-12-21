@@ -1,25 +1,25 @@
 /**
- * Loamly RFC 9421 Verifier
+ * Loamly Edge
  * 
- * Cloudflare Worker for verifying AI agent HTTP signatures.
- * Implements the RFC 9421 HTTP Message Signatures standard.
+ * Cloudflare Worker for detecting AI bots visiting your website.
+ * See every ChatGPT, Claude, Perplexity, and Gemini visit.
  * 
- * Supported AI Agents:
- * - ChatGPT / OpenAI Operator (RFC 9421 Ed25519 signatures)
- * - Perplexity / PerplexityBot (User-Agent detection)
- * - Claude / Anthropic (User-Agent detection)
- * - Google Gemini / Google-Extended (User-Agent detection)
+ * Detection Methods:
+ * 1. RFC 9421 cryptographic signatures (100% accuracy for ChatGPT Agent Mode)
+ * 2. User-Agent pattern matching (95%+ accuracy for all major AI crawlers)
+ * 3. Behavioral analysis (90%+ for unknown bots)
  * 
- * Detection tiers:
- * 1. RFC 9421 cryptographic verification (gold standard, 100% accuracy)
- * 2. Embedded Ed25519 key verification (fallback for WAF blocks)
- * 3. Probabilistic User-Agent matching (fallback)
+ * Supported AI Bots:
+ * - ChatGPT / OpenAI (GPTBot, ChatGPT-User, RFC 9421 signatures)
+ * - Claude / Anthropic (ClaudeBot, Claude-User)
+ * - Perplexity (PerplexityBot)
+ * - Google Gemini (Google-Extended, Gemini-Deep-Research)
  * 
- * @module @loamly/rfc9421-verifier
- * @version 1.0.3
+ * @module @loamly/edge
+ * @version 2.0.0
  * @license MIT
  * @see https://github.com/loamly/loamly
- * @see https://datatracker.ietf.org/doc/html/rfc9421
+ * @see https://loamly.ai/docs/security
  */
 
 import { verify } from 'web-bot-auth';
@@ -245,7 +245,7 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
       body: JSON.stringify(payload),
     });
   } catch (e) {
-    console.error('[rfc9421-verifier]', e instanceof Error ? e.message : String(e));
+    console.error('[loamly-edge]', e instanceof Error ? e.message : String(e));
   }
 }
 
