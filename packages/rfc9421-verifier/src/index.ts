@@ -16,7 +16,7 @@
  * 3. Probabilistic User-Agent matching (fallback)
  * 
  * @module @loamly/rfc9421-verifier
- * @version 1.0.0
+ * @version 1.0.1
  * @license MIT
  * @see https://github.com/loamly/loamly
  * @see https://datatracker.ietf.org/doc/html/rfc9421
@@ -49,8 +49,8 @@ const EMBEDDED_KEYS: EmbeddedKey[] = [
     crv: 'Ed25519',
     x: '7F_3jDlxaquwh291MiACkcS3Opq88NksyHiakzS-Y1g',
     use: 'sig',
-    nbf: 1735689600,
-    exp: 1766263057,
+    nbf: 1735689600, // 2025-01-01T00:00:00Z
+    exp: 1766930449, // 2025-12-27T23:40:49Z (REFRESHED 2025-12-21 from live JWKS)
   },
 ];
 
@@ -70,10 +70,15 @@ export default {
     const agent = agentHeader ? String(agentHeader).replace(/^"|"$/g, '') : '';
     const ua = String(request.headers.get('user-agent') || '').toLowerCase();
     
+    // Detect ALL AI bot User-Agents
+    // ChatGPT: ChatGPT-User, GPTBot, chatgpt.com
+    // Perplexity: PerplexityBot, Perplexity-User
+    // Claude: ClaudeBot, Claude-User, anthropic-ai, anthropic.com
+    // Google Gemini: Google-Extended, Gemini-Deep-Research
     const isChatGPTBot = ua.includes('chatgpt-user') || ua.includes('chatgpt.com') || ua.includes('gptbot');
-    const isPerplexityBot = ua.includes('perplexitybot');
-    const isClaudeBot = ua.includes('claudebot') || ua.includes('anthropic-ai');
-    const isGoogleBot = ua.includes('google-extended');
+    const isPerplexityBot = ua.includes('perplexitybot') || ua.includes('perplexity-user');
+    const isClaudeBot = ua.includes('claudebot') || ua.includes('claude-user') || ua.includes('anthropic-ai') || ua.includes('anthropic.com');
+    const isGoogleBot = ua.includes('google-extended') || ua.includes('gemini-deep-research');
     const isAIBot = isChatGPTBot || isPerplexityBot || isClaudeBot || isGoogleBot;
     const isAgentFetch = (sig && sigInput) || (agent && agent.includes('chatgpt.com')) || isAIBot;
     
