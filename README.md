@@ -54,6 +54,19 @@ Loamly detects AI traffic using **RFC 9421 cryptographic signatures** — the sa
 | Behavioral ML | 75-90% | Mouse/scroll pattern classification |
 | User-Agent | 95%+ | Known AI bot patterns |
 
+## 4-Tier Verification Architecture
+
+Loamly offers multiple deployment options based on your needs:
+
+| Tier | Method | Accuracy | Deployment |
+|------|--------|----------|------------|
+| **1. Managed Proxy** | RFC 9421 + Edge | **100%** | Point A record to `37.16.7.18` |
+| **2. Cloudflare Worker** | RFC 9421 | **100%** | Deploy to your Cloudflare account |
+| **3. Edge Middleware** | RFC 9421 | **100%** | Next.js/Vercel middleware |
+| **4. Client-Side** | Behavioral + Timing | **75-90%** | JavaScript tracker |
+
+**Tier 1 (Managed Proxy)** is recommended for root domains that can't use CNAME records. We handle SSL, caching, and verification automatically.
+
 ## Packages
 
 | Package | Description | npm |
@@ -63,29 +76,19 @@ Loamly detects AI traffic using **RFC 9421 cryptographic signatures** — the sa
 
 ## Quick Start
 
-### Option 1: Script Tag (Simplest)
+### Option 1: Managed Proxy (100% Accuracy, Zero Maintenance)
 
-```html
-<script defer data-domain="your-site.com" src="https://app.loamly.ai/t.js"></script>
+Just point your domain's A record to our edge proxy:
+
+```
+your-domain.com  A  37.16.7.18
 ```
 
-### Option 2: NPM Package
+We handle SSL (Let's Encrypt), RFC 9421 verification, and proxying to your origin automatically. Perfect for root domains that can't use CNAME. [Security details →](https://loamly.ai/docs/security)
 
-```bash
-npm install @loamly/tracker
-```
+### Option 2: Cloudflare Worker (100% Accuracy, Self-Hosted)
 
-```typescript
-import { loamly } from '@loamly/tracker'
-
-loamly.init({ domain: 'your-site.com' })
-loamly.track('signup_started')
-loamly.conversion('purchase', 99.99)
-```
-
-### Option 3: RFC 9421 Verification (100% Accuracy)
-
-Deploy our Cloudflare Worker for cryptographic AI bot verification:
+Deploy our RFC 9421 verifier to your Cloudflare account:
 
 ```bash
 git clone https://github.com/loamly/loamly.git
@@ -99,13 +102,27 @@ npx wrangler secret put LOAMLY_WORKSPACE_API_KEY
 npx wrangler deploy
 ```
 
-Or use our **Managed Proxy** — just point your DNS:
+### Option 3: JavaScript Tracker (75-90% Accuracy)
 
-```
-your-domain.com  A  37.16.7.18
+Script tag:
+
+```html
+<script defer data-domain="your-site.com" src="https://app.loamly.ai/t.js"></script>
 ```
 
-We handle SSL, verification, and proxying automatically. [Learn more →](https://loamly.ai/docs/security)
+NPM:
+
+```bash
+npm install @loamly/tracker
+```
+
+```typescript
+import { loamly } from '@loamly/tracker'
+
+loamly.init({ domain: 'your-site.com' })
+loamly.track('signup_started')
+loamly.conversion('purchase', 99.99)
+```
 
 ## How RFC 9421 Verification Works
 

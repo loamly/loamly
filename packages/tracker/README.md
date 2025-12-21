@@ -21,12 +21,22 @@ When users copy URLs from ChatGPT, Claude, or Perplexity:
 
 ## The Solution
 
-Loamly detects AI-referred traffic with **75-85% accuracy** using:
+Loamly detects AI-referred traffic using multiple methods:
+
+| Method | Accuracy | Description |
+|--------|----------|-------------|
+| **Managed Proxy** | 100% | RFC 9421 cryptographic verification |
+| **Cloudflare Worker** | 100% | Self-hosted RFC 9421 verification |
+| **JavaScript Tracker** | 75-90% | This package |
+
+This tracker provides client-side detection using:
 
 - 🔍 Referrer detection
 - ⏱️ Navigation Timing API (paste vs click)
 - 🧠 Behavioral signals
 - 📋 Zero-party surveys
+
+> **💡 For 100% accuracy**, combine with our edge verification. [Learn more →](https://loamly.ai/docs/security)
 
 ## Quick Start
 

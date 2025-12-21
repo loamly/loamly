@@ -8,6 +8,16 @@ Part of the [Loamly](https://github.com/loamly/loamly) open-source project.
 
 ---
 
+> **💡 Alternative: Managed Proxy**
+> 
+> Don't want to manage your own Cloudflare Worker? Use our **Managed Proxy** instead:
+> ```
+> your-domain.com  A  37.16.7.18
+> ```
+> We handle SSL, verification, and proxying automatically. [Security details →](https://loamly.ai/docs/security)
+
+---
+
 ## What This Does
 
 When ChatGPT's browsing mode visits your website, it signs requests using [RFC 9421 HTTP Message Signatures](https://datatracker.ietf.org/doc/html/rfc9421). This Cloudflare Worker:
