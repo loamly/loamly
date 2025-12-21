@@ -108,6 +108,7 @@ Events sent to the ingest endpoint:
   "landing_page": "https://example.com/product/123",
   "user_agent": "ChatGPT-User/1.0",
   "ip_address": "1.2.3.4",
+  "country": "US",
   "signature_verified": true,
   "signature_agent": "https://chatgpt.com",
   "signature_key_id": "abc123...",
@@ -116,7 +117,10 @@ Events sent to the ingest endpoint:
 }
 ```
 
-> **Note:** The `ip_address` field enables deterministic visitor ID generation, ensuring multiple page fetches from the same bot session are grouped as one visitor.
+> **Privacy-First Design:**
+> - `ip_address` is used for deterministic visitor ID hashing only — **NOT stored in database**
+> - `country` is the only geo data stored (from Cloudflare's `cf-ipcountry` header)
+> - No raw IP addresses are persisted, ensuring GDPR compliance
 
 ## License
 

@@ -16,7 +16,7 @@
  * 3. Probabilistic User-Agent matching (fallback)
  * 
  * @module @loamly/rfc9421-verifier
- * @version 1.0.2
+ * @version 1.0.3
  * @license MIT
  * @see https://github.com/loamly/loamly
  * @see https://datatracker.ietf.org/doc/html/rfc9421
@@ -204,17 +204,22 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
     
     // CRITICAL FIX: Include IP address for deterministic visitor ID generation
     // This allows multiple page fetches from the same bot session to be grouped as one visitor
+    // NOTE: IP is sent for hashing but NOT stored in the database (privacy-first)
     const clientIP = request.headers.get('cf-connecting-ip') || 
                      request.headers.get('x-real-ip') || 
                      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
                      null;
+    
+    // PRIVACY-FIRST: Use Cloudflare's geo headers instead of storing raw IP
+    const country = request.headers.get('cf-ipcountry') || null;
     
     const payload = {
       workspace_id: env.LOAMLY_WORKSPACE_ID,
       landing_page: url.toString(),
       referrer: request.headers.get('referer') || null,
       user_agent: request.headers.get('user-agent') || null,
-      ip_address: clientIP, // NEW: For deterministic visitor ID grouping
+      ip_address: clientIP, // For visitor ID hashing only - NOT stored in DB
+      country: country, // Privacy-preserving: country only, not IP
       timestamp: new Date().toISOString(),
       signature_verified: valid,
       signature_agent: (() => {
