@@ -6,7 +6,7 @@
  * @see https://github.com/loamly/loamly
  */
 
-export const VERSION = '1.8.0'
+export const VERSION = '1.9.0'
 
 export const DEFAULT_CONFIG = {
   apiHost: 'https://app.loamly.ai',
