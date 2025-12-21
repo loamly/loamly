@@ -107,6 +107,7 @@ Events sent to the ingest endpoint:
   "workspace_id": "...",
   "landing_page": "https://example.com/product/123",
   "user_agent": "ChatGPT-User/1.0",
+  "ip_address": "1.2.3.4",
   "signature_verified": true,
   "signature_agent": "https://chatgpt.com",
   "signature_key_id": "abc123...",
@@ -114,6 +115,8 @@ Events sent to the ingest endpoint:
   "timestamp": "2025-12-20T10:30:00Z"
 }
 ```
+
+> **Note:** The `ip_address` field enables deterministic visitor ID generation, ensuring multiple page fetches from the same bot session are grouped as one visitor.
 
 ## License
 

@@ -1,6 +1,6 @@
 {
   "name": "@loamly/rfc9421-verifier",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Cloudflare Worker for RFC 9421 HTTP Message Signatures verification - detect AI agents like ChatGPT",
   "author": "Loamly <hello@loamly.ai>",
   "license": "MIT",
