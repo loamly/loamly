@@ -58,7 +58,7 @@ Combined accuracy: **~90%** for AI-influenced traffic.
 | Package | Description | npm |
 |---------|-------------|-----|
 | [`@loamly/tracker`](./packages/tracker) | JavaScript tracker for websites | [![npm](https://img.shields.io/npm/v/@loamly/tracker.svg)](https://www.npmjs.com/package/@loamly/tracker) |
-| [`@loamly/rfc9421-verifier`](./packages/rfc9421-verifier) | Cloudflare Worker for AI agent verification | — |
+| [`@loamly/rfc9421-verifier`](./packages/rfc9421-verifier) | Cloudflare Worker for AI agent verification | [![npm](https://img.shields.io/npm/v/@loamly/rfc9421-verifier.svg)](https://www.npmjs.com/package/@loamly/rfc9421-verifier) |
 
 ## Quick Start
 
