@@ -1,0 +1,119 @@
+# Sync Tracker Bundle to Private App Repository
+#
+# This workflow automatically syncs the built @loamly/tracker CDN bundle
+# to the private app repository (marcodicesare-dev/loamly).
+#
+# This ensures the hosted tracker (public/tracker/t.js) stays in sync
+# with the npm package - following PostHog/Segment best practices.
+#
+# Trigger: Runs after successful release or manual dispatch
+# Output: Creates a PR in the private repo with the updated bundle
+
+name: Sync Tracker to App
+
+on:
+  # Run after release is published
+  release:
+    types: [published]
+  
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no PR created)'
+        required: false
+        default: 'false'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout loamly-oss
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Build tracker package
+        run: |
+          cd packages/tracker
+          pnpm build
+      
+      - name: Get package version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./packages/tracker/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Checkout private app repo
+        uses: actions/checkout@v4
+        with:
+          repository: marcodicesare-dev/loamly
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          path: private-app
+      
+      - name: Copy tracker bundle
+        run: |
+          # Ensure directory exists
+          mkdir -p private-app/public/tracker
+          
+          # Copy the minified IIFE bundle
+          cp packages/tracker/dist/loamly.iife.min.global.js private-app/public/tracker/t.js
+          
+          # Add version header
+          VERSION=${{ steps.version.outputs.version }}
+          HEADER="/* @loamly/tracker v${VERSION} - https://github.com/loamly/loamly */\n"
+          echo -e "${HEADER}$(cat private-app/public/tracker/t.js)" > private-app/public/tracker/t.js
+          
+          echo "✅ Copied tracker bundle v${VERSION}"
+      
+      - name: Create PR in private repo
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          path: private-app
+          commit-message: "chore: sync tracker bundle v${{ steps.version.outputs.version }}"
+          title: "Sync @loamly/tracker v${{ steps.version.outputs.version }}"
+          body: |
+            ## Automated Sync from loamly/loamly
+            
+            This PR updates the hosted tracker (`public/tracker/t.js`) to match the latest npm package build.
+            
+            **Version**: `@loamly/tracker@${{ steps.version.outputs.version }}`
+            **Source**: https://github.com/loamly/loamly/releases/tag/v${{ steps.version.outputs.version }}
+            
+            ### Changes
+            - Updated `public/tracker/t.js` from npm build output
+            
+            ### Verification
+            - [ ] Bundle size is reasonable (< 50KB minified)
+            - [ ] No breaking API changes
+            - [ ] Works on loamly.ai after merge
+            
+            ---
+            *This PR was automatically created by the [sync-tracker-to-app](https://github.com/loamly/loamly/actions/workflows/sync-tracker-to-app.yml) workflow.*
+          branch: sync/tracker-v${{ steps.version.outputs.version }}
+          delete-branch: true
+      
+      - name: Dry run summary
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "🔍 Dry run - no PR created"
+          echo "Would sync: @loamly/tracker v${{ steps.version.outputs.version }}"
+          echo "Bundle size: $(wc -c < packages/tracker/dist/loamly.iife.min.global.js) bytes"
+          echo ""
+          echo "First 10 lines of bundle:"
+          head -10 packages/tracker/dist/loamly.iife.min.global.js

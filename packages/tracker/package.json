@@ -1,7 +1,7 @@
 {
   "name": "@loamly/tracker",
-  "version": "1.9.0",
-  "description": "Open-source AI traffic detection for websites",
+  "version": "2.0.0",
+  "description": "See every AI bot that visits your website. ChatGPT, Claude, Perplexity, Gemini — know when they crawl or refer traffic.",
   "author": "Loamly <hello@loamly.ai>",
   "license": "MIT",
   "homepage": "https://loamly.ai",

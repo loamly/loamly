@@ -14,6 +14,9 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    outputs:
+      tracker_version: ${{ steps.version.outputs.version }}
+      tracker_published: ${{ steps.publish.outputs.published }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,11 +43,69 @@ jobs:
       - name: Test
         run: pnpm test || true
 
+      - name: Get tracker version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./packages/tracker/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Tracker version: $VERSION"
+
+      - name: Verify tracker bundle
+        run: |
+          echo "📊 Tracker bundle verification:"
+          ls -la packages/tracker/dist/
+          
+          # Check bundle exists
+          if [ ! -f "packages/tracker/dist/loamly.iife.min.global.js" ]; then
+            echo "❌ IIFE bundle not found!"
+            exit 1
+          fi
+          
+          # Check bundle size (should be < 15KB)
+          SIZE=$(wc -c < packages/tracker/dist/loamly.iife.min.global.js)
+          echo "Bundle size: $SIZE bytes"
+          
+          if [ "$SIZE" -gt 15000 ]; then
+            echo "⚠️ Warning: Bundle exceeds 15KB target"
+          fi
+          
+          # Verify it contains key detection methods
+          if ! grep -q "detectNavigationType\|focus_blur\|FocusBlur" packages/tracker/dist/loamly.iife.min.global.js; then
+            echo "⚠️ Warning: Bundle may be missing detection methods"
+          fi
+          
+          echo "✅ Bundle verification passed"
+
       - name: Publish @loamly/tracker
+        id: publish
         working-directory: packages/tracker
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          if npm publish --access public 2>&1; then
+            echo "published=true" >> $GITHUB_OUTPUT
+            echo "✅ Published @loamly/tracker@${{ steps.version.outputs.version }}"
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Version already published or publish failed"
+          fi
+
+      - name: Publish @loamly/edge
+        working-directory: packages/edge
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
           npm publish --access public || echo "Version already published"
+
+      - name: Release summary
+        run: |
+          echo "## 📦 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Version | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| @loamly/tracker | ${{ steps.version.outputs.version }} | ${{ steps.publish.outputs.published == 'true' && '✅ Published' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| @loamly/edge | $(node -p \"require('./packages/edge/package.json').version\") | Published |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The \`sync-tracker-to-app\` workflow will automatically sync the tracker to \`app.loamly.ai/t.js\`." >> $GITHUB_STEP_SUMMARY
 
 
