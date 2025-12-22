@@ -16,7 +16,7 @@
  * - Google Gemini (Google-Extended, Gemini-Deep-Research)
  * 
  * @module @loamly/edge
- * @version 2.1.0
+ * @version 2.1.1
  * @license MIT
  * @see https://github.com/loamly/loamly
  * @see https://loamly.ai/docs/security
