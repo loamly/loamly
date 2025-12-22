@@ -21,6 +21,31 @@ export interface LoamlyConfig {
   
   /** Custom session timeout in milliseconds (default: 30 minutes) */
   sessionTimeout?: number
+  
+  /**
+   * Feature flags for lightweight mode
+   * Set to false to reduce initialization overhead
+   */
+  features?: {
+    /** Scroll depth tracking (default: true) */
+    scroll?: boolean
+    /** Time on page tracking (default: true) */
+    time?: boolean
+    /** Form interaction tracking (default: true) */
+    forms?: boolean
+    /** SPA navigation support (default: true) */
+    spa?: boolean
+    /** Behavioral ML classification (default: true) */
+    behavioralML?: boolean
+    /** Focus/blur paste detection (default: true) */
+    focusBlur?: boolean
+    /** Agentic browser detection (default: true) */
+    agentic?: boolean
+    /** Event queue with retry (default: true) */
+    eventQueue?: boolean
+    /** Heartbeat ping service (default: false - opt-in) */
+    ping?: boolean
+  }
 }
 
 export interface TrackEventOptions {

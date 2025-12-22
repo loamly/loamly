@@ -110,6 +110,29 @@ loamly.init({
 });
 ```
 
+### Lightweight Mode
+
+Disable specific features to reduce CPU/memory overhead:
+
+```typescript
+loamly.init({
+  apiKey: 'your-api-key',
+  features: {
+    scroll: true,       // Scroll depth tracking (default: true)
+    time: true,         // Time on page tracking (default: true)
+    forms: true,        // Form interaction tracking (default: true)
+    spa: true,          // SPA navigation support (default: true)
+    behavioralML: false, // Behavioral ML classification (default: true) - saves ~2KB CPU
+    focusBlur: true,    // Focus/blur paste detection (default: true)
+    agentic: false,     // Agentic browser detection (default: true) - saves ~1.5KB CPU
+    eventQueue: true,   // Event queue with retry (default: true)
+    ping: false,        // Heartbeat ping service (default: false - opt-in)
+  }
+});
+```
+
+**Note:** All features are included in the bundle (~11KB gzipped). The `features` config only affects runtime initialization, not download size.
+
 ### `track(eventName, options?)`
 
 Track a custom event.

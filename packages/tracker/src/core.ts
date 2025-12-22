@@ -117,7 +117,22 @@ function init(userConfig: LoamlyConfig = {}): void {
   
   debugMode = userConfig.debug ?? false
   
+  // Feature flags with defaults (all enabled except ping)
+  const features = {
+    scroll: true,
+    time: true,
+    forms: true,
+    spa: true,
+    behavioralML: true,
+    focusBlur: true,
+    agentic: true,
+    eventQueue: true,
+    ping: false, // Opt-in only
+    ...userConfig.features,
+  }
+  
   log('Initializing Loamly Tracker v' + VERSION)
+  log('Features:', features)
   
   // Get/create visitor ID
   visitorId = getVisitorId()
@@ -128,17 +143,19 @@ function init(userConfig: LoamlyConfig = {}): void {
   sessionId = session.sessionId
   log('Session ID:', sessionId, session.isNew ? '(new)' : '(existing)')
   
-  // Initialize event queue with batching
-  eventQueue = new EventQueue(endpoint(DEFAULT_CONFIG.endpoints.behavioral), {
-    batchSize: DEFAULT_CONFIG.batchSize,
-    batchTimeout: DEFAULT_CONFIG.batchTimeout,
-  })
+  // Initialize event queue with batching (if enabled)
+  if (features.eventQueue) {
+    eventQueue = new EventQueue(endpoint(DEFAULT_CONFIG.endpoints.behavioral), {
+      batchSize: DEFAULT_CONFIG.batchSize,
+      batchTimeout: DEFAULT_CONFIG.batchTimeout,
+    })
+  }
   
-  // Detect navigation timing (paste vs click)
+  // Detect navigation timing (paste vs click) - always lightweight
   navigationTiming = detectNavigationType()
   log('Navigation timing:', navigationTiming)
   
-  // Detect AI from referrer/UTM
+  // Detect AI from referrer/UTM - always lightweight
   aiDetection = detectAIFromReferrer(document.referrer) || detectAIFromUTM(window.location.href)
   if (aiDetection) {
     log('AI detected:', aiDetection)
@@ -151,33 +168,39 @@ function init(userConfig: LoamlyConfig = {}): void {
     pageview()
   }
   
-  // Set up behavioral tracking unless disabled
+  // Set up behavioral tracking (scroll, time, forms) unless disabled
   if (!userConfig.disableBehavioral) {
-    setupAdvancedBehavioralTracking()
+    setupAdvancedBehavioralTracking(features)
   }
   
-  // Initialize behavioral ML classifier (LOA-180)
-  behavioralClassifier = new BehavioralClassifier(10000) // 10s min session
-  behavioralClassifier.setOnClassify(handleBehavioralClassification)
-  setupBehavioralMLTracking()
+  // Initialize behavioral ML classifier (LOA-180) - if enabled
+  if (features.behavioralML) {
+    behavioralClassifier = new BehavioralClassifier(10000) // 10s min session
+    behavioralClassifier.setOnClassify(handleBehavioralClassification)
+    setupBehavioralMLTracking()
+  }
   
-  // Initialize focus/blur analyzer (LOA-182)
-  focusBlurAnalyzer = new FocusBlurAnalyzer()
-  focusBlurAnalyzer.initTracking()
+  // Initialize focus/blur analyzer (LOA-182) - if enabled
+  if (features.focusBlur) {
+    focusBlurAnalyzer = new FocusBlurAnalyzer()
+    focusBlurAnalyzer.initTracking()
+    
+    // Analyze focus/blur after 5 seconds
+    setTimeout(() => {
+      if (focusBlurAnalyzer) {
+        handleFocusBlurAnalysis(focusBlurAnalyzer.analyze())
+      }
+    }, 5000)
+  }
   
-  // Analyze focus/blur after 5 seconds
-  setTimeout(() => {
-    if (focusBlurAnalyzer) {
-      handleFocusBlurAnalysis(focusBlurAnalyzer.analyze())
-    }
-  }, 5000)
+  // Initialize agentic browser detection (LOA-187) - if enabled
+  if (features.agentic) {
+    agenticAnalyzer = new AgenticBrowserAnalyzer()
+    agenticAnalyzer.init()
+  }
   
-  // Initialize agentic browser detection (LOA-187)
-  agenticAnalyzer = new AgenticBrowserAnalyzer()
-  agenticAnalyzer.init()
-  
-  // Set up ping service
-  if (visitorId && sessionId) {
+  // Set up ping service - if enabled (opt-in)
+  if (features.ping && visitorId && sessionId) {
     pingService = new PingService(sessionId, visitorId, VERSION, {
       interval: DEFAULT_CONFIG.pingInterval,
       endpoint: endpoint(DEFAULT_CONFIG.endpoints.ping),
@@ -203,54 +226,83 @@ function init(userConfig: LoamlyConfig = {}): void {
 /**
  * Set up advanced behavioral tracking with new modules
  */
-function setupAdvancedBehavioralTracking(): void {
-  // Scroll tracker with 30% chunks
-  scrollTracker = new ScrollTracker({
-    chunks: [30, 60, 90, 100],
-    onChunkReached: (event: ScrollEvent) => {
-      log('Scroll chunk:', event.chunk)
-      queueEvent('scroll_depth', {
-        depth: event.depth,
-        chunk: event.chunk,
-        time_to_reach_ms: event.time_to_reach_ms,
-      })
-    },
-  })
-  scrollTracker.start()
-  
-  // Time tracker
-  timeTracker = new TimeTracker({
-    updateIntervalMs: 10000, // Report every 10 seconds
-    onUpdate: (event: TimeEvent) => {
-      if (event.active_time_ms >= DEFAULT_CONFIG.timeSpentThresholdMs) {
-        queueEvent('time_spent', {
-          active_time_ms: event.active_time_ms,
-          total_time_ms: event.total_time_ms,
-          idle_time_ms: event.idle_time_ms,
-          is_engaged: event.is_engaged,
+interface FeatureFlags {
+  scroll?: boolean
+  time?: boolean
+  forms?: boolean
+  spa?: boolean
+  behavioralML?: boolean
+  focusBlur?: boolean
+  agentic?: boolean
+  eventQueue?: boolean
+  ping?: boolean
+}
+
+function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
+  // Scroll tracker with 30% chunks (if enabled)
+  if (features.scroll) {
+    scrollTracker = new ScrollTracker({
+      chunks: [30, 60, 90, 100],
+      onChunkReached: (event: ScrollEvent) => {
+        log('Scroll chunk:', event.chunk)
+        queueEvent('scroll_depth', {
+          depth: event.depth,
+          chunk: event.chunk,
+          time_to_reach_ms: event.time_to_reach_ms,
         })
-      }
-    },
-  })
-  timeTracker.start()
+      },
+    })
+    scrollTracker.start()
+  }
   
-  // Form tracker with universal support
-  formTracker = new FormTracker({
-    onFormEvent: (event: FormEvent) => {
-      log('Form event:', event.event_type, event.form_id)
-      queueEvent(event.event_type, {
-        form_id: event.form_id,
-        form_type: event.form_type,
-        field_name: event.field_name,
-        field_type: event.field_type,
-        time_to_submit_ms: event.time_to_submit_ms,
-        is_conversion: event.is_conversion,
-      })
-    },
-  })
-  formTracker.start()
+  // Time tracker (if enabled)
+  if (features.time) {
+    timeTracker = new TimeTracker({
+      updateIntervalMs: 10000, // Report every 10 seconds
+      onUpdate: (event: TimeEvent) => {
+        if (event.active_time_ms >= DEFAULT_CONFIG.timeSpentThresholdMs) {
+          queueEvent('time_spent', {
+            active_time_ms: event.active_time_ms,
+            total_time_ms: event.total_time_ms,
+            idle_time_ms: event.idle_time_ms,
+            is_engaged: event.is_engaged,
+          })
+        }
+      },
+    })
+    timeTracker.start()
+  }
   
-  // Click tracking for links (basic)
+  // Form tracker with universal support (if enabled)
+  if (features.forms) {
+    formTracker = new FormTracker({
+      onFormEvent: (event: FormEvent) => {
+        log('Form event:', event.event_type, event.form_id)
+        queueEvent(event.event_type, {
+          form_id: event.form_id,
+          form_type: event.form_type,
+          field_name: event.field_name,
+          field_type: event.field_type,
+          time_to_submit_ms: event.time_to_submit_ms,
+          is_conversion: event.is_conversion,
+        })
+      },
+    })
+    formTracker.start()
+  }
+  
+  // SPA router (if enabled)
+  if (features.spa) {
+    spaRouter = new SPARouter({
+      onNavigate: (event: NavigationEvent) => {
+        log('SPA navigation:', event.navigation_type)
+        pageview(event.to_url)
+      },
+    })
+    spaRouter.start()
+  }
+  
+  // Click tracking for links (always enabled, lightweight)
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
     const link = target.closest('a')
