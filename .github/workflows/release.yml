@@ -95,13 +95,14 @@ jobs:
 
       - name: Release summary
         run: |
+          EDGE_VERSION=$(node -p "require('./packages/edge/package.json').version")
           echo "## 📦 Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Package | Version | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|---------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| @loamly/tracker | ${{ steps.version.outputs.version }} | ${{ steps.publish.outputs.published == 'true' && '✅ Published' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| @loamly/edge | $(node -p \"require('./packages/edge/package.json').version\") | Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| @loamly/tracker | ${{ steps.version.outputs.version }} | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| @loamly/edge | $EDGE_VERSION | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The \`sync-tracker-to-app\` workflow will automatically sync the tracker to \`app.loamly.ai/t.js\`." >> $GITHUB_STEP_SUMMARY
+          echo "CDN: https://cdn.jsdelivr.net/npm/@loamly/tracker/dist/loamly.iife.min.global.js" >> $GITHUB_STEP_SUMMARY
 
 
