@@ -194,6 +194,9 @@ function init(userConfig: LoamlyConfig = {}): void {
   // Set up unload handlers
   setupUnloadHandlers()
   
+  // Report health status
+  reportHealth('initialized')
+  
   log('Initialization complete')
 }
 
@@ -679,6 +682,50 @@ function isTrackerInitialized(): boolean {
 }
 
 /**
+ * Report tracker health status
+ * Used for monitoring and debugging
+ */
+function reportHealth(status: 'initialized' | 'error' | 'ready', errorMessage?: string): void {
+  if (!config.apiKey) return
+  
+  try {
+    const healthData = {
+      workspace_id: config.apiKey,
+      status,
+      error_message: errorMessage || null,
+      version: VERSION,
+      url: typeof window !== 'undefined' ? window.location.href : null,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      timestamp: new Date().toISOString(),
+      features: {
+        scroll_tracker: !!scrollTracker,
+        time_tracker: !!timeTracker,
+        form_tracker: !!formTracker,
+        spa_router: !!spaRouter,
+        behavioral_ml: !!behavioralClassifier,
+        focus_blur: !!focusBlurAnalyzer,
+        agentic: !!agenticAnalyzer,
+        ping_service: !!pingService,
+        event_queue: !!eventQueue,
+      },
+    }
+    
+    // Fire and forget
+    safeFetch(endpoint(DEFAULT_CONFIG.endpoints.health), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(healthData),
+    }).catch(() => {
+      // Ignore health reporting errors
+    })
+    
+    log('Health reported:', status)
+  } catch {
+    // Ignore
+  }
+}
+
+/**
  * Reset the tracker
  */
 function reset(): void {
@@ -729,7 +776,10 @@ function setDebug(enabled: boolean): void {
 /**
  * The Loamly Tracker instance
  */
-export const loamly: LoamlyTracker & { getAgentic: () => AgenticDetectionResult | null } = {
+export const loamly: LoamlyTracker & { 
+  getAgentic: () => AgenticDetectionResult | null 
+  reportHealth: (status: 'initialized' | 'error' | 'ready', errorMessage?: string) => void
+} = {
   init,
   pageview,
   track,
@@ -745,6 +795,7 @@ export const loamly: LoamlyTracker & { getAgentic: () => AgenticDetectionResult 
   isInitialized: isTrackerInitialized,
   reset,
   debug: setDebug,
+  reportHealth,
 }
 
 export default loamly
