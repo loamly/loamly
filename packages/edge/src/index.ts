@@ -153,6 +153,37 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
   try {
     if (request.method !== 'GET') return;
     
+    // Skip static assets to prevent inflated visit counts
+    // These are legitimate resource fetches, not pageviews
+    const url = new URL(request.url);
+    const path = url.pathname.toLowerCase();
+    const isStaticAsset = 
+      path.startsWith('/_next/static/') ||
+      path.startsWith('/static/') ||
+      path.endsWith('.js') ||
+      path.endsWith('.css') ||
+      path.endsWith('.woff') ||
+      path.endsWith('.woff2') ||
+      path.endsWith('.ttf') ||
+      path.endsWith('.eot') ||
+      path.endsWith('.ico') ||
+      path.endsWith('.png') ||
+      path.endsWith('.jpg') ||
+      path.endsWith('.jpeg') ||
+      path.endsWith('.gif') ||
+      path.endsWith('.webp') ||
+      path.endsWith('.svg') ||
+      path.endsWith('.map') ||
+      path.includes('/_next/image') ||
+      path.includes('/api/') ||
+      path.includes('/__nextjs') ||
+      path.includes('/_vercel');
+    
+    if (isStaticAsset) {
+      // Don't track static assets as visits
+      return;
+    }
+    
     const sig = request.headers.get('signature') || request.headers.get('Signature');
     const sigInput = request.headers.get('signature-input') || request.headers.get('Signature-Input');
     const agentHeader = request.headers.get('signature-agent') || request.headers.get('Signature-Agent');
