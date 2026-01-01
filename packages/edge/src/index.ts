@@ -358,7 +358,7 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
     }
 
     // Post to Loamly with verification results from Cloudflare Worker
-    const url = new URL(request.url);
+    // Note: 'url' is already defined at the top of handleVerification()
     
     // CRITICAL: Include IP address for deterministic visitor ID generation
     // NOTE: We send the IP for hashing but do NOT store it in the database (privacy-first)
