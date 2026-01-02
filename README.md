@@ -107,8 +107,10 @@ npx wrangler deploy
 Script tag:
 
 ```html
-<script defer data-domain="your-site.com" src="https://app.loamly.ai/t.js"></script>
+<script defer src="https://app.loamly.ai/t.js?d=your-site.com"></script>
 ```
+
+**Subdomains:** Use your root domain in the `?d=` parameter. For example, if you have `blog.your-site.com` and `app.your-site.com`, use `?d=your-site.com` on all subdomains — they'll all be tracked in the same workspace.
 
 NPM:
 
