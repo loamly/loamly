@@ -58,7 +58,7 @@ const EMBEDDED_KEYS: EmbeddedKey[] = [
     x: '7F_3jDlxaquwh291MiACkcS3Opq88NksyHiakzS-Y1g',
     use: 'sig',
     nbf: 1735689600, // 2025-01-01T00:00:00Z
-    exp: 1766930449, // 2025-12-27T23:40:49Z (REFRESHED 2025-12-21 from live JWKS)
+    exp: 1769028904, // 2026-01-21T20:55:04Z (REFRESHED 2026-01-14 from live JWKS)
   },
   // Add more keys as OpenAI rotates them
   // Fetch from: https://chatgpt.com/.well-known/http-message-signatures-directory
