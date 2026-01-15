@@ -367,8 +367,11 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
                      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
                      null;
     
-    // PRIVACY-FIRST: Use Cloudflare's geo headers instead of storing raw IP
-    const country = request.headers.get('cf-ipcountry') || null;
+    // PRIVACY-FIRST: Use Cloudflare geo headers or request.cf country
+    const country =
+      request.headers.get('cf-ipcountry') ||
+      (request as any)?.cf?.country ||
+      null;
     
     const payload = {
       workspace_id: env.LOAMLY_WORKSPACE_ID,
