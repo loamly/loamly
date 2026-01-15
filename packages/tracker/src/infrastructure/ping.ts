@@ -32,6 +32,7 @@ export class PingService {
   private config: PingConfig
   private pageLoadTime: number
   private isVisible = true
+  private isFocused = true
   private currentScrollDepth = 0
   private sessionId: string
   private visitorId: string
@@ -47,6 +48,8 @@ export class PingService {
     this.visitorId = visitorId
     this.version = version
     this.pageLoadTime = Date.now()
+    this.isVisible = document.visibilityState === 'visible'
+    this.isFocused = typeof document.hasFocus === 'function' ? document.hasFocus() : true
     this.config = {
       interval: DEFAULT_CONFIG.pingInterval,
       endpoint: '',
@@ -55,6 +58,8 @@ export class PingService {
 
     // Track visibility
     document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    window.addEventListener('focus', this.handleFocusChange)
+    window.addEventListener('blur', this.handleFocusChange)
     
     // Track scroll depth
     window.addEventListener('scroll', this.handleScroll, { passive: true })
@@ -67,13 +72,15 @@ export class PingService {
     if (this.intervalId) return
 
     this.intervalId = setInterval(() => {
-      if (this.isVisible) {
+      if (this.isVisible && this.isFocused) {
         this.ping()
       }
     }, this.config.interval)
 
     // Send initial ping
-    this.ping()
+    if (this.isVisible && this.isFocused) {
+      this.ping()
+    }
   }
 
   /**
@@ -86,6 +93,8 @@ export class PingService {
     }
 
     document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+    window.removeEventListener('focus', this.handleFocusChange)
+    window.removeEventListener('blur', this.handleFocusChange)
     window.removeEventListener('scroll', this.handleScroll)
   }
 
@@ -108,7 +117,7 @@ export class PingService {
       url: window.location.href,
       time_on_page_ms: Date.now() - this.pageLoadTime,
       scroll_depth: this.currentScrollDepth,
-      is_active: this.isVisible,
+      is_active: this.isVisible && this.isFocused,
       tracker_version: this.version,
     }
   }
@@ -135,6 +144,13 @@ export class PingService {
 
   private handleVisibilityChange = (): void => {
     this.isVisible = document.visibilityState === 'visible'
+  }
+
+  private handleFocusChange = (): void => {
+    this.isFocused = typeof document.hasFocus === 'function' ? document.hasFocus() : true
+    if (this.intervalId && this.isVisible && this.isFocused) {
+      this.ping()
+    }
   }
 
   private handleScroll = (): void => {
