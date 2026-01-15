@@ -5,7 +5,7 @@
  * See what AI tells your customers — and track when they click.
  * 
  * @module @loamly/tracker
- * @version 1.8.0
+ * @version 2.1.0
  * @license MIT
  * @see https://github.com/loamly/loamly
  * @see https://loamly.ai

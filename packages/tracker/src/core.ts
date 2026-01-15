@@ -62,8 +62,10 @@ let initialized = false
 let debugMode = false
 let visitorId: string | null = null
 let sessionId: string | null = null
+let workspaceId: string | null = null
 let navigationTiming: NavigationTiming | null = null
 let aiDetection: AIDetectionResult | null = null
+let pageStartTime: number | null = null
 
 // Detection modules
 let behavioralClassifier: BehavioralClassifier | null = null
@@ -100,6 +102,34 @@ function endpoint(path: string): string {
   return `${config.apiHost}${path}`
 }
 
+function buildHeaders(idempotencyKey?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (config.apiKey) {
+    headers['X-Loamly-Api-Key'] = config.apiKey
+  }
+
+  if (idempotencyKey) {
+    headers['X-Idempotency-Key'] = idempotencyKey
+  }
+
+  return headers
+}
+
+function buildBeaconUrl(path: string): string {
+  if (!config.apiKey) return path
+  const url = new URL(path, config.apiHost)
+  url.searchParams.set('api_key', config.apiKey)
+  return url.toString()
+}
+
+function buildIdempotencyKey(prefix: string): string {
+  const base = sessionId || visitorId || 'unknown'
+  return `${prefix}:${base}:${Date.now()}`
+}
+
 /**
  * Initialize the tracker
  */
@@ -114,8 +144,13 @@ function init(userConfig: LoamlyConfig = {}): void {
     ...userConfig,
     apiHost: userConfig.apiHost || DEFAULT_CONFIG.apiHost,
   }
+  workspaceId = userConfig.workspaceId ?? null
   
   debugMode = userConfig.debug ?? false
+
+  if (config.apiKey && !workspaceId) {
+    log('Workspace ID missing. Behavioral events require workspaceId.')
+  }
   
   // Feature flags with defaults (all enabled except ping)
   const features = {
@@ -137,17 +172,13 @@ function init(userConfig: LoamlyConfig = {}): void {
   // Get/create visitor ID
   visitorId = getVisitorId()
   log('Visitor ID:', visitorId)
-  
-  // Get/create session
-  const session = getSessionId()
-  sessionId = session.sessionId
-  log('Session ID:', sessionId, session.isNew ? '(new)' : '(existing)')
-  
-  // Initialize event queue with batching (if enabled)
+
+  // Initialize event queue (if enabled)
   if (features.eventQueue) {
     eventQueue = new EventQueue(endpoint(DEFAULT_CONFIG.endpoints.behavioral), {
       batchSize: DEFAULT_CONFIG.batchSize,
       batchTimeout: DEFAULT_CONFIG.batchTimeout,
+      apiKey: config.apiKey,
     })
   }
   
@@ -162,51 +193,57 @@ function init(userConfig: LoamlyConfig = {}): void {
   }
   
   initialized = true
-  
-  // Auto pageview unless disabled
-  if (!userConfig.disableAutoPageview) {
-    pageview()
-  }
-  
-  // Set up behavioral tracking (scroll, time, forms) unless disabled
-  if (!userConfig.disableBehavioral) {
-    setupAdvancedBehavioralTracking(features)
-  }
-  
-  // Initialize behavioral ML classifier (LOA-180) - if enabled
-  if (features.behavioralML) {
-    behavioralClassifier = new BehavioralClassifier(10000) // 10s min session
-    behavioralClassifier.setOnClassify(handleBehavioralClassification)
-    setupBehavioralMLTracking()
-  }
-  
-  // Initialize focus/blur analyzer (LOA-182) - if enabled
-  if (features.focusBlur) {
-    focusBlurAnalyzer = new FocusBlurAnalyzer()
-    focusBlurAnalyzer.initTracking()
-    
-    // Analyze focus/blur after 5 seconds
-    setTimeout(() => {
-      if (focusBlurAnalyzer) {
-        handleFocusBlurAnalysis(focusBlurAnalyzer.analyze())
-      }
-    }, 5000)
-  }
-  
-  // Initialize agentic browser detection (LOA-187) - if enabled
+
+  // Initialize agentic browser detection early for pageview payloads
   if (features.agentic) {
     agenticAnalyzer = new AgenticBrowserAnalyzer()
     agenticAnalyzer.init()
   }
-  
-  // Set up ping service - if enabled (opt-in)
-  if (features.ping && visitorId && sessionId) {
-    pingService = new PingService(sessionId, visitorId, VERSION, {
-      interval: DEFAULT_CONFIG.pingInterval,
-      endpoint: endpoint(DEFAULT_CONFIG.endpoints.ping),
-    })
-    pingService.start()
-  }
+
+  // Initialize session (async), then start tracking
+  void initializeSession().finally(() => {
+    // Register service worker for RFC 9421 verification (optional)
+    void registerServiceWorker()
+
+    // Auto pageview unless disabled
+    if (!userConfig.disableAutoPageview) {
+      pageview()
+    }
+
+    // Set up behavioral tracking (scroll, time, forms) unless disabled
+    if (!userConfig.disableBehavioral) {
+      setupAdvancedBehavioralTracking(features)
+    }
+
+    // Initialize behavioral ML classifier (LOA-180) - if enabled
+    if (features.behavioralML) {
+      behavioralClassifier = new BehavioralClassifier(10000) // 10s min session
+      behavioralClassifier.setOnClassify(handleBehavioralClassification)
+      setupBehavioralMLTracking()
+    }
+
+    // Initialize focus/blur analyzer (LOA-182) - if enabled
+    if (features.focusBlur) {
+      focusBlurAnalyzer = new FocusBlurAnalyzer()
+      focusBlurAnalyzer.initTracking()
+      
+      // Analyze focus/blur after 5 seconds
+      setTimeout(() => {
+        if (focusBlurAnalyzer) {
+          handleFocusBlurAnalysis(focusBlurAnalyzer.analyze())
+        }
+      }, 5000)
+    }
+
+    // Set up ping service - if enabled (opt-in)
+    if (features.ping && visitorId && sessionId) {
+      pingService = new PingService(sessionId, visitorId, VERSION, {
+        interval: DEFAULT_CONFIG.pingInterval,
+        endpoint: endpoint(DEFAULT_CONFIG.endpoints.ping),
+      })
+      pingService.start()
+    }
+  })
   
   // Set up SPA navigation tracking
   spaRouter = new SPARouter({
@@ -221,6 +258,101 @@ function init(userConfig: LoamlyConfig = {}): void {
   reportHealth('initialized')
   
   log('Initialization complete')
+}
+
+async function registerServiceWorker(): Promise<void> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  if (!config.apiKey || !workspaceId) return
+
+  try {
+    const swUrl = new URL('/tracker/loamly-sw.js', window.location.origin)
+    swUrl.searchParams.set('workspace_id', workspaceId)
+    swUrl.searchParams.set('api_key', config.apiKey)
+
+    const registration = await navigator.serviceWorker.register(swUrl.toString(), { scope: '/' })
+
+    registration.addEventListener('updatefound', () => {
+      const installing = registration.installing
+      installing?.addEventListener('statechange', () => {
+        if (installing.state === 'activated') {
+          installing.postMessage({ type: 'SKIP_WAITING' })
+        }
+      })
+    })
+
+    setInterval(() => {
+      registration.update().catch(() => {
+        // Ignore update failures
+      })
+    }, 24 * 60 * 60 * 1000)
+  } catch {
+    // Ignore service worker errors
+  }
+}
+
+/**
+ * Initialize session with server-side tracker_sessions when possible
+ */
+async function initializeSession(): Promise<void> {
+  const now = Date.now()
+  pageStartTime = now
+
+  // Try sessionStorage first (fast path)
+  try {
+    const storedSession = sessionStorage.getItem('loamly_session')
+    const storedStart = sessionStorage.getItem('loamly_start')
+    const sessionTimeout = config.sessionTimeout ?? DEFAULT_CONFIG.sessionTimeout
+
+    if (storedSession && storedStart) {
+      const startTime = parseInt(storedStart, 10)
+      const elapsed = now - startTime
+      if (elapsed > 0 && elapsed < sessionTimeout) {
+        sessionId = storedSession
+        log('Session ID:', sessionId, '(existing)')
+        return
+      }
+    }
+  } catch {
+    // sessionStorage not available
+  }
+
+  // Try server-side session creation if we have required context
+  if (config.apiKey && workspaceId && visitorId) {
+    try {
+      const response = await safeFetch(endpoint(DEFAULT_CONFIG.endpoints.session), {
+        method: 'POST',
+        headers: buildHeaders(),
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          visitor_id: visitorId,
+        }),
+      })
+
+      if (response?.ok) {
+        const data = await response.json()
+        sessionId = data.session_id || sessionId
+        const startTime = data.start_time || now
+
+        if (sessionId) {
+          try {
+            sessionStorage.setItem('loamly_session', sessionId)
+            sessionStorage.setItem('loamly_start', String(startTime))
+          } catch {
+            // Ignore storage failures
+          }
+          log('Session ID:', sessionId, '(server)')
+          return
+        }
+      }
+    } catch {
+      // Fall through to local session
+    }
+  }
+
+  // Fallback: local session
+  const session = getSessionId()
+  sessionId = session.sessionId
+  log('Session ID:', sessionId, session.isNew ? '(new)' : '(existing)')
 }
 
 /**
@@ -246,8 +378,8 @@ function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
       onChunkReached: (event: ScrollEvent) => {
         log('Scroll chunk:', event.chunk)
         queueEvent('scroll_depth', {
-          depth: event.depth,
-          chunk: event.chunk,
+          scroll_depth: Math.round((event.depth / 100) * 100) / 100,
+          milestone: Math.round((event.chunk / 100) * 100) / 100,
           time_to_reach_ms: event.time_to_reach_ms,
         })
       },
@@ -262,10 +394,8 @@ function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
       onUpdate: (event: TimeEvent) => {
         if (event.active_time_ms >= DEFAULT_CONFIG.timeSpentThresholdMs) {
           queueEvent('time_spent', {
-            active_time_ms: event.active_time_ms,
-            total_time_ms: event.total_time_ms,
-            idle_time_ms: event.idle_time_ms,
-            is_engaged: event.is_engaged,
+            visible_time_ms: event.total_time_ms,
+            page_start_time: pageStartTime || Date.now(),
           })
         }
       },
@@ -278,13 +408,13 @@ function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
     formTracker = new FormTracker({
       onFormEvent: (event: FormEvent) => {
         log('Form event:', event.event_type, event.form_id)
-        queueEvent(event.event_type, {
+        const normalizedEventType = event.event_type === 'form_submit' || event.event_type === 'form_success'
+          ? 'form_submit'
+          : 'form_focus'
+        queueEvent(normalizedEventType, {
           form_id: event.form_id,
-          form_type: event.form_type,
-          field_name: event.field_name,
-          field_type: event.field_type,
-          time_to_submit_ms: event.time_to_submit_ms,
-          is_conversion: event.is_conversion,
+          form_field_type: event.field_type || null,
+          time_to_submit_seconds: event.time_to_submit_ms ? Math.round(event.time_to_submit_ms / 1000) : null,
         })
       },
     })
@@ -310,7 +440,7 @@ function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
     if (link && link.href) {
       const isExternal = link.hostname !== window.location.hostname
       queueEvent('click', {
-        element: 'link',
+        element_type: 'link',
         href: truncateText(link.href, 200),
         text: truncateText(link.textContent || '', 100),
         is_external: isExternal,
@@ -324,16 +454,35 @@ function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
  */
 function queueEvent(eventType: string, data: Record<string, unknown>): void {
   if (!eventQueue) return
-  
-  eventQueue.push(eventType, {
+  if (!config.apiKey) {
+    log('Missing apiKey, behavioral event skipped:', eventType)
+    return
+  }
+  if (!workspaceId) {
+    log('Missing workspaceId, behavioral event skipped:', eventType)
+    return
+  }
+  if (!sessionId) {
+    log('Missing sessionId, behavioral event skipped:', eventType)
+    return
+  }
+
+  const idempotencyKey = buildIdempotencyKey(eventType)
+  const payload: Record<string, unknown> = {
     visitor_id: visitorId,
     session_id: sessionId,
     event_type: eventType,
-    ...data,
-    url: window.location.href,
+    event_data: data,
+    page_url: window.location.href,
+    page_path: window.location.pathname,
     timestamp: new Date().toISOString(),
     tracker_version: VERSION,
-  })
+    idempotency_key: idempotencyKey,
+  }
+
+  payload.workspace_id = workspaceId
+
+  eventQueue.push(eventType, payload, buildHeaders(idempotencyKey))
 }
 
 /**
@@ -379,39 +528,46 @@ function handleSPANavigation(event: NavigationEvent): void {
  */
 function setupUnloadHandlers(): void {
   const handleUnload = (): void => {
+    if (!workspaceId || !config.apiKey || !sessionId) return
+
     // Get final scroll depth
     const scrollEvent = scrollTracker?.getFinalEvent()
     if (scrollEvent) {
-      sendBeacon(endpoint(DEFAULT_CONFIG.endpoints.behavioral), {
+      sendBeacon(buildBeaconUrl(endpoint(DEFAULT_CONFIG.endpoints.behavioral)), {
+        workspace_id: workspaceId,
         visitor_id: visitorId,
         session_id: sessionId,
         event_type: 'scroll_depth_final',
-        data: scrollEvent,
-        url: window.location.href,
+        event_data: {
+          scroll_depth: Math.round((scrollEvent.depth / 100) * 100) / 100,
+          milestone: Math.round((scrollEvent.chunk / 100) * 100) / 100,
+          time_to_reach_ms: scrollEvent.time_to_reach_ms,
+        },
+        page_url: window.location.href,
+        page_path: window.location.pathname,
+        timestamp: new Date().toISOString(),
+        tracker_version: VERSION,
+        idempotency_key: buildIdempotencyKey('scroll_depth_final'),
       })
     }
     
     // Get final time metrics
     const timeEvent = timeTracker?.getFinalMetrics()
     if (timeEvent) {
-      sendBeacon(endpoint(DEFAULT_CONFIG.endpoints.behavioral), {
+      sendBeacon(buildBeaconUrl(endpoint(DEFAULT_CONFIG.endpoints.behavioral)), {
+        workspace_id: workspaceId,
         visitor_id: visitorId,
         session_id: sessionId,
-        event_type: 'time_spent_final',
-        data: timeEvent,
-        url: window.location.href,
-      })
-    }
-    
-    // Get agentic detection result
-    const agenticResult = agenticAnalyzer?.getResult()
-    if (agenticResult && agenticResult.agenticProbability > 0) {
-      sendBeacon(endpoint(DEFAULT_CONFIG.endpoints.behavioral), {
-        visitor_id: visitorId,
-        session_id: sessionId,
-        event_type: 'agentic_detection',
-        data: agenticResult,
-        url: window.location.href,
+        event_type: 'time_spent',
+        event_data: {
+          visible_time_ms: timeEvent.total_time_ms,
+          page_start_time: pageStartTime || Date.now(),
+        },
+        page_url: window.location.href,
+        page_path: window.location.pathname,
+        timestamp: new Date().toISOString(),
+        tracker_version: VERSION,
+        idempotency_key: buildIdempotencyKey('time_spent'),
       })
     }
     
@@ -443,33 +599,60 @@ function pageview(customUrl?: string): void {
     log('Not initialized, call init() first')
     return
   }
+  if (!config.apiKey) {
+    log('Missing apiKey, pageview skipped')
+    return
+  }
 
   const url = customUrl || window.location.href
-  const payload = {
+  const utmParams = extractUTMParams(url)
+  const timestamp = new Date().toISOString()
+  const idempotencyKey = buildIdempotencyKey('visit')
+  const agenticResult = agenticAnalyzer?.getResult()
+  const pagePath = (() => {
+    try {
+      return new URL(url).pathname
+    } catch {
+      return window.location.pathname
+    }
+  })()
+
+  const payload: Record<string, unknown> = {
     visitor_id: visitorId,
     session_id: sessionId,
-    url,
+    page_url: url,
+    page_path: pagePath,
     referrer: document.referrer || null,
     title: document.title || null,
-    utm_source: extractUTMParams(url).utm_source || null,
-    utm_medium: extractUTMParams(url).utm_medium || null,
-    utm_campaign: extractUTMParams(url).utm_campaign || null,
+    utm_source: utmParams.utm_source || null,
+    utm_medium: utmParams.utm_medium || null,
+    utm_campaign: utmParams.utm_campaign || null,
+    utm_term: utmParams.utm_term || null,
+    utm_content: utmParams.utm_content || null,
     user_agent: navigator.userAgent,
     screen_width: window.screen?.width,
     screen_height: window.screen?.height,
     language: navigator.language,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     tracker_version: VERSION,
+    event_type: 'pageview',
+    event_data: null,
+    timestamp,
     navigation_timing: navigationTiming,
     ai_platform: aiDetection?.platform || null,
     is_ai_referrer: aiDetection?.isAI || false,
+    agentic_detection: agenticResult || null,
+  }
+
+  if (workspaceId) {
+    payload.workspace_id = workspaceId
   }
 
   log('Pageview:', payload)
 
   safeFetch(endpoint(DEFAULT_CONFIG.endpoints.visit), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders(idempotencyKey),
     body: JSON.stringify(payload),
   })
 }
@@ -482,8 +665,13 @@ function track(eventName: string, options: TrackEventOptions = {}): void {
     log('Not initialized, call init() first')
     return
   }
+  if (!config.apiKey) {
+    log('Missing apiKey, event skipped:', eventName)
+    return
+  }
 
-  const payload = {
+  const idempotencyKey = buildIdempotencyKey(`event:${eventName}`)
+  const payload: Record<string, unknown> = {
     visitor_id: visitorId,
     session_id: sessionId,
     event_name: eventName,
@@ -491,16 +679,22 @@ function track(eventName: string, options: TrackEventOptions = {}): void {
     properties: options.properties || {},
     revenue: options.revenue,
     currency: options.currency || 'USD',
-    url: window.location.href,
+    page_url: window.location.href,
+    referrer: document.referrer || null,
     timestamp: new Date().toISOString(),
     tracker_version: VERSION,
+    idempotency_key: idempotencyKey,
+  }
+
+  if (workspaceId) {
+    payload.workspace_id = workspaceId
   }
 
   log('Event:', eventName, payload)
 
   safeFetch(endpoint('/api/ingest/event'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders(idempotencyKey),
     body: JSON.stringify(payload),
   })
 }
@@ -520,20 +714,30 @@ function identify(userId: string, traits: Record<string, unknown> = {}): void {
     log('Not initialized, call init() first')
     return
   }
+  if (!config.apiKey) {
+    log('Missing apiKey, identify skipped')
+    return
+  }
 
   log('Identify:', userId, traits)
 
-  const payload = {
+  const idempotencyKey = buildIdempotencyKey('identify')
+  const payload: Record<string, unknown> = {
     visitor_id: visitorId,
     session_id: sessionId,
     user_id: userId,
     traits,
     timestamp: new Date().toISOString(),
+    idempotency_key: idempotencyKey,
+  }
+
+  if (workspaceId) {
+    payload.workspace_id = workspaceId
   }
 
   safeFetch(endpoint('/api/ingest/identify'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders(idempotencyKey),
     body: JSON.stringify(payload),
   })
 }
@@ -738,15 +942,15 @@ function isTrackerInitialized(): boolean {
  * Used for monitoring and debugging
  */
 function reportHealth(status: 'initialized' | 'error' | 'ready', errorMessage?: string): void {
-  if (!config.apiKey) return
-  
   try {
     const healthData = {
-      workspace_id: config.apiKey,
+      workspace_id: workspaceId,
+      visitor_id: visitorId,
+      session_id: sessionId,
       status,
       error_message: errorMessage || null,
-      version: VERSION,
-      url: typeof window !== 'undefined' ? window.location.href : null,
+      tracker_version: VERSION,
+      page_url: typeof window !== 'undefined' ? window.location.href : null,
       user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
       timestamp: new Date().toISOString(),
       features: {

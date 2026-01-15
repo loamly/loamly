@@ -16,6 +16,7 @@ export interface QueuedEvent {
   id: string
   type: string
   payload: Record<string, unknown>
+  headers?: Record<string, string>
   timestamp: number
   retries: number
 }
@@ -26,6 +27,7 @@ interface EventQueueConfig {
   maxRetries: number
   retryDelayMs: number
   storageKey: string
+  apiKey?: string
 }
 
 const DEFAULT_QUEUE_CONFIG: EventQueueConfig = {
@@ -52,11 +54,12 @@ export class EventQueue {
   /**
    * Add event to queue
    */
-  push(type: string, payload: Record<string, unknown>): void {
+  push(type: string, payload: Record<string, unknown>, headers?: Record<string, string>): void {
     const event: QueuedEvent = {
       id: this.generateId(),
       type,
       payload,
+      headers,
       timestamp: Date.now(),
       retries: 0,
     }
@@ -92,24 +95,31 @@ export class EventQueue {
   flushBeacon(): boolean {
     if (this.queue.length === 0) return true
 
-    const events = this.queue.map(e => ({
-      type: e.type,
-      ...e.payload,
-      _queue_id: e.id,
-      _queue_timestamp: e.timestamp,
-    }))
+    const baseUrl = this.config.apiKey
+      ? `${this.endpoint}?api_key=${encodeURIComponent(this.config.apiKey)}`
+      : this.endpoint
 
-    const success = navigator.sendBeacon?.(
-      this.endpoint,
-      JSON.stringify({ events, beacon: true })
-    ) ?? false
+    let allSent = true
+    for (const event of this.queue) {
+      const payload = {
+        ...event.payload,
+        _queue_id: event.id,
+        _queue_timestamp: event.timestamp,
+      }
 
-    if (success) {
+      const success = navigator.sendBeacon?.(baseUrl, JSON.stringify(payload)) ?? false
+      if (!success) {
+        allSent = false
+        break
+      }
+    }
+
+    if (allSent) {
       this.queue = []
       this.clearStorage()
     }
 
-    return success
+    return allSent
   }
 
   /**
@@ -145,28 +155,44 @@ export class EventQueue {
   private async sendBatch(events: QueuedEvent[]): Promise<void> {
     if (events.length === 0) return
 
-    const payload = {
-      events: events.map(e => ({
-        type: e.type,
-        ...e.payload,
-        _queue_id: e.id,
-        _queue_timestamp: e.timestamp,
-      })),
-      batch: true,
-    }
-
     try {
-      const response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      const results = await Promise.allSettled(
+        events.map(async (event) => {
+          const response = await fetch(this.endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(event.headers || {}),
+            },
+            body: JSON.stringify({
+              ...event.payload,
+              _queue_id: event.id,
+              _queue_timestamp: event.timestamp,
+            }),
+          })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
+        })
+      )
+
+      const failedEvents = events.filter((_, index) => results[index]?.status === 'rejected')
+      if (failedEvents.length > 0) {
+        // Retry failed events only
+        for (const event of failedEvents) {
+          if (event.retries < this.config.maxRetries) {
+            event.retries++
+            this.queue.push(event)
+          }
+        }
+        // Schedule retry with exponential backoff
+        const delay = this.config.retryDelayMs * Math.pow(2, failedEvents[0].retries - 1)
+        setTimeout(() => this.flush(), delay)
       }
+      return
     } catch (error) {
-      // Retry failed events
+      // Retry all events if we hit an unexpected error
       for (const event of events) {
         if (event.retries < this.config.maxRetries) {
           event.retries++

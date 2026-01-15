@@ -6,6 +6,9 @@
 export interface LoamlyConfig {
   /** Your Loamly API key (found in dashboard) */
   apiKey?: string
+
+  /** Workspace ID (required when using public tracker key) */
+  workspaceId?: string
   
   /** Custom API host (default: https://app.loamly.ai) */
   apiHost?: string

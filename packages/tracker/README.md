@@ -30,7 +30,7 @@ Combined with [@loamly/edge](../edge/) for server-side detection, you get **75-8
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@loamly/tracker@2/dist/loamly.iife.min.global.js"></script>
 <script>
-  Loamly.init({ apiKey: 'your-api-key' });
+  Loamly.init({ apiKey: 'your-api-key', workspaceId: 'your-workspace-uuid' });
 </script>
 ```
 
@@ -43,7 +43,7 @@ npm install @loamly/tracker
 ```typescript
 import { loamly } from '@loamly/tracker';
 
-loamly.init({ apiKey: 'your-api-key' });
+loamly.init({ apiKey: 'your-api-key', workspaceId: 'your-workspace-uuid' });
 ```
 
 ## Features
@@ -102,7 +102,8 @@ Initialize the tracker with configuration.
 
 ```typescript
 loamly.init({
-  apiKey: 'your-api-key',        // Required
+  apiKey: 'your-api-key',           // Required
+  workspaceId: 'your-workspace-uuid', // Required for public tracker keys
   apiHost: 'https://app.loamly.ai', // Optional: custom host
   debug: true,                    // Optional: enable console logging
   disableAutoPageview: false,     // Optional: disable auto pageview

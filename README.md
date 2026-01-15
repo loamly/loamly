@@ -121,7 +121,8 @@ npm install @loamly/tracker
 ```typescript
 import { loamly } from '@loamly/tracker'
 
-loamly.init({ domain: 'your-site.com' })
+// Use domain resolution via script tag, or pass explicit credentials
+loamly.init({ apiKey: 'pk_loamly_...', workspaceId: 'your-workspace-uuid' })
 loamly.track('signup_started')
 loamly.conversion('purchase', 99.99)
 ```

@@ -9,7 +9,9 @@
  *    <script src="https://app.loamly.ai/t.js?d=your-domain.com"></script>
  * 
  * 2. npm with data attributes:
- *    <script src="https://cdn.jsdelivr.net/npm/@loamly/tracker" data-api-key="your-key"></script>
+ *    <script src="https://cdn.jsdelivr.net/npm/@loamly/tracker"
+ *            data-api-key="your-key"
+ *            data-workspace-id="your-workspace-uuid"></script>
  * 
  * 3. Self-hosted with manual init:
  *    <script src="/tracker.js"></script>
@@ -49,7 +51,7 @@ function extractDomainFromScriptUrl(): string | null {
  */
 async function resolveWorkspaceConfig(domain: string): Promise<LoamlyConfig | null> {
   try {
-    const response = await fetch(`${DEFAULT_CONFIG.apiHost}${DEFAULT_CONFIG.endpoints.resolve}?domain=${encodeURIComponent(domain)}`)
+    const response = await fetch(`${DEFAULT_CONFIG.apiHost}${DEFAULT_CONFIG.endpoints.resolve}?d=${encodeURIComponent(domain)}`)
     
     if (!response.ok) {
       console.warn('[Loamly] Failed to resolve workspace for domain:', domain)
@@ -58,9 +60,10 @@ async function resolveWorkspaceConfig(domain: string): Promise<LoamlyConfig | nu
     
     const data = await response.json()
     
-    if (data.workspace_id) {
+    if (data.workspace_id && data.public_key) {
       return {
-        apiKey: data.workspace_api_key,
+        apiKey: data.public_key,
+        workspaceId: data.workspace_id,
         apiHost: DEFAULT_CONFIG.apiHost,
       }
     }
@@ -85,6 +88,10 @@ function extractConfigFromDataAttributes(): LoamlyConfig | null {
       if (script.dataset.apiKey) {
         config.apiKey = script.dataset.apiKey
       }
+
+      if (script.dataset.workspaceId) {
+        config.workspaceId = script.dataset.workspaceId
+      }
       
       if (script.dataset.apiHost) {
         config.apiHost = script.dataset.apiHost
@@ -102,7 +109,7 @@ function extractConfigFromDataAttributes(): LoamlyConfig | null {
         config.disableBehavioral = true
       }
       
-      if (config.apiKey) {
+      if (config.apiKey || config.workspaceId) {
         return config
       }
     }
@@ -132,8 +139,20 @@ async function autoInit(): Promise<void> {
     loamly.init(dataConfig)
     return
   }
+
+  // Priority 3: URL params (api_key + workspace_id)
+  const urlParams = new URLSearchParams(window.location.search)
+  const apiKeyParam = urlParams.get('api_key')
+  const workspaceIdParam = urlParams.get('workspace_id')
+  if (apiKeyParam || workspaceIdParam) {
+    loamly.init({
+      apiKey: apiKeyParam || undefined,
+      workspaceId: workspaceIdParam || undefined,
+    })
+    return
+  }
   
-  // Priority 3: Current domain auto-detection (for app.loamly.ai hosted script)
+  // Priority 4: Current domain auto-detection (for app.loamly.ai hosted script)
   const currentDomain = window.location.hostname
   if (currentDomain && currentDomain !== 'localhost') {
     const resolvedConfig = await resolveWorkspaceConfig(currentDomain)
