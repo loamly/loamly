@@ -71,11 +71,13 @@ jobs:
           
           # Copy the minified IIFE bundle
           cp packages/tracker/dist/loamly.iife.min.global.js private-app/public/tracker/t.js
+          cp packages/tracker/dist/loamly.iife.min.global.js private-app/public/t.js
           
           # Add version header
           VERSION=${{ steps.version.outputs.version }}
-          HEADER="/* @loamly/tracker v${VERSION} - https://github.com/loamly/loamly */\n"
+          HEADER="/*!\n * @loamly/tracker v${VERSION} - https://github.com/loamly/loamly\n * @version ${VERSION}\n */\n"
           echo -e "${HEADER}$(cat private-app/public/tracker/t.js)" > private-app/public/tracker/t.js
+          echo -e "${HEADER}$(cat private-app/public/t.js)" > private-app/public/t.js
           
           echo "✅ Copied tracker bundle v${VERSION}"
       
