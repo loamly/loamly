@@ -408,12 +408,20 @@ function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
     formTracker = new FormTracker({
       onFormEvent: (event: FormEvent) => {
         log('Form event:', event.event_type, event.form_id)
-        const normalizedEventType = event.event_type === 'form_submit' || event.event_type === 'form_success'
+        const isSubmitEvent = event.event_type === 'form_submit'
+        const isSuccessEvent = event.event_type === 'form_success'
+        const normalizedEventType = isSubmitEvent || isSuccessEvent
           ? 'form_submit'
           : 'form_focus'
+        const submitSource = event.submit_source || (isSuccessEvent ? 'thank_you' : isSubmitEvent ? 'submit' : null)
         queueEvent(normalizedEventType, {
           form_id: event.form_id,
+          form_provider: event.form_type || 'unknown',
           form_field_type: event.field_type || null,
+          form_field_name: event.field_name || null,
+          form_event_type: event.event_type,
+          submit_source: submitSource,
+          is_inferred: isSuccessEvent,
           time_to_submit_seconds: event.time_to_submit_ms ? Math.round(event.time_to_submit_ms / 1000) : null,
         })
       },

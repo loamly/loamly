@@ -21,6 +21,7 @@ export interface FormEvent {
   field_type?: string
   time_to_submit_ms?: number
   is_conversion?: boolean
+  submit_source?: 'submit' | 'click' | 'thank_you'
 }
 
 export interface FormTrackerConfig {
@@ -152,6 +153,7 @@ export class FormTracker {
       form_type: this.detectFormType(form),
       time_to_submit_ms: startTime ? Date.now() - startTime : undefined,
       is_conversion: true,
+      submit_source: 'submit',
     })
   }
 
@@ -171,6 +173,7 @@ export class FormTracker {
           form_type: 'hubspot',
           time_to_submit_ms: startTime ? Date.now() - startTime : undefined,
           is_conversion: true,
+          submit_source: 'click',
         })
       }
     }
@@ -182,6 +185,7 @@ export class FormTracker {
         form_id: 'typeform_embed',
         form_type: 'typeform',
         is_conversion: true,
+        submit_source: 'click',
       })
     }
   }
@@ -269,6 +273,7 @@ export class FormTracker {
           form_id: 'page_conversion',
           form_type: 'unknown',
           is_conversion: true,
+          submit_source: 'thank_you',
         })
         break
       }
