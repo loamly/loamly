@@ -360,7 +360,10 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
     // Post to Loamly with verification results from Cloudflare Worker
     // Note: 'url' is already defined at the top of handleVerification()
     
-    // CRITICAL: Include IP address for deterministic visitor ID generation
+    // CRITICAL (LOA-441): Include IP + timestamp for session-level visitor ID
+    // Each bot session (same second) = unique visitor_id for 1-to-1 linking
+    // Multiple pages in SAME SECOND = same visitor (grouped correctly)
+    // Different seconds = different visitors (different ChatGPT queries)
     // NOTE: We send the IP for hashing but do NOT store it in the database (privacy-first)
     const clientIP = request.headers.get('cf-connecting-ip') || 
                      request.headers.get('x-real-ip') || 
@@ -373,6 +376,10 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
       (request as any)?.cf?.country ||
       null;
     
+    // LOA-441: Timestamp truncated to second for session-level visitor_id
+    // This ensures each bot session gets unique visitor_id
+    const timestampSeconds = new Date().toISOString().split('.')[0] + 'Z'; // YYYY-MM-DDTHH:MM:SSZ
+    
     const payload = {
       workspace_id: env.LOAMLY_WORKSPACE_ID,
       landing_page: url.toString(),
@@ -380,7 +387,7 @@ async function handleVerification(request: Request, env: Env, botFlags: BotFlags
       user_agent: request.headers.get('user-agent') || null,
       ip_address: clientIP, // For visitor ID hashing only - NOT stored in DB
       country: country, // Privacy-preserving: country only, not city or IP
-      timestamp: new Date().toISOString(),
+      timestamp: timestampSeconds, // Truncated to second for session-level visitor_id
       
       // Verification results from Cloudflare Worker
       signature_verified: valid,
