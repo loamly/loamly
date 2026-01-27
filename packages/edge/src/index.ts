@@ -16,7 +16,7 @@
  * - Google Gemini (Google-Extended, Gemini-Deep-Research)
  * 
  * @module @loamly/edge
- * @version 2.1.1
+ * @version 2.2.0
  * @license MIT
  * @see https://github.com/loamly/loamly
  * @see https://loamly.ai/docs/security
@@ -103,7 +103,7 @@ export default {
     const isChatGPTBot = ua.includes('chatgpt-user') || ua.includes('chatgpt.com') || ua.includes('gptbot');
     const isPerplexityBot = ua.includes('perplexitybot') || ua.includes('perplexity-user');
     const isClaudeBot = ua.includes('claudebot') || ua.includes('claude-user') || ua.includes('anthropic-ai') || ua.includes('anthropic.com');
-    const isGoogleBot = ua.includes('google-extended') || ua.includes('gemini-deep-research');
+    const isGoogleBot = ua.includes('google-extended') || ua.includes('gemini-deep-research') || ua.includes('google-cloudvertexbot');
     const isAIBot = isChatGPTBot || isPerplexityBot || isClaudeBot || isGoogleBot;
     const isAgentFetch = (sig && sigInput) || (agent && agent.includes('chatgpt.com')) || isAIBot;
     
