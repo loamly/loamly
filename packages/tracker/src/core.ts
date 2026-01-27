@@ -1038,19 +1038,58 @@ function setDebug(enabled: boolean): void {
 }
 
 /**
+ * Track a behavioral event (for use by secondary modules/plugins)
+ * 
+ * This is the recommended way for secondary tracking modules to send events.
+ * It automatically includes workspace_id, visitor_id, session_id, and handles
+ * batching, queueing, and retry logic.
+ * 
+ * @param eventType - The type of event (e.g., 'outbound_click', 'button_click')
+ * @param eventData - Additional data for the event
+ * 
+ * @example
+ * ```js
+ * Loamly.trackBehavioral('outbound_click', {
+ *   url: 'https://example.com',
+ *   text: 'Click here',
+ *   hostname: 'example.com'
+ * });
+ * ```
+ */
+function trackBehavioral(eventType: string, eventData: Record<string, unknown>): void {
+  if (!initialized) {
+    log('Not initialized, trackBehavioral skipped:', eventType)
+    return
+  }
+  queueEvent(eventType, eventData)
+}
+
+/**
+ * Get the current workspace ID
+ * For internal use by secondary modules
+ */
+function getCurrentWorkspaceId(): string | null {
+  return workspaceId
+}
+
+/**
  * The Loamly Tracker instance
  */
 export const loamly: LoamlyTracker & { 
   getAgentic: () => AgenticDetectionResult | null 
   reportHealth: (status: 'initialized' | 'error' | 'ready', errorMessage?: string) => void
+  trackBehavioral: (eventType: string, eventData: Record<string, unknown>) => void
+  getWorkspaceId: () => string | null
 } = {
   init,
   pageview,
   track,
+  trackBehavioral,  // NEW: For secondary modules/plugins
   conversion,
   identify,
   getSessionId: getCurrentSessionId,
   getVisitorId: getCurrentVisitorId,
+  getWorkspaceId: getCurrentWorkspaceId,  // NEW: For debugging/introspection
   getAIDetection: getAIDetectionResult,
   getNavigationTiming: getNavigationTimingResult,
   getBehavioralML: getBehavioralMLResult,

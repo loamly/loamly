@@ -129,6 +129,23 @@ export interface LoamlyTracker {
   /** Track a custom event */
   track: (eventName: string, options?: TrackEventOptions) => void
   
+  /**
+   * Track a behavioral event (for secondary modules/plugins)
+   * 
+   * This is the recommended way for secondary tracking modules to send events.
+   * It automatically includes workspace_id, visitor_id, session_id, and handles
+   * batching, queueing, and retry logic.
+   * 
+   * @example
+   * ```js
+   * Loamly.trackBehavioral('outbound_click', {
+   *   url: 'https://example.com',
+   *   text: 'Click here'
+   * });
+   * ```
+   */
+  trackBehavioral: (eventType: string, eventData: Record<string, unknown>) => void
+  
   /** Track a conversion/revenue event */
   conversion: (eventName: string, revenue: number, currency?: string) => void
   
@@ -140,6 +157,9 @@ export interface LoamlyTracker {
   
   /** Get the current visitor ID */
   getVisitorId: () => string | null
+  
+  /** Get the current workspace ID */
+  getWorkspaceId: () => string | null
   
   /** Get AI detection result for current page */
   getAIDetection: () => AIDetectionResult | null
