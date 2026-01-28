@@ -13,6 +13,14 @@
  * @module @loamly/tracker
  */
 
+// LOA-482: Form field data (privacy-safe)
+export interface FormFieldData {
+  name: string
+  type: string
+  // Value is included only for non-sensitive fields, truncated for privacy
+  value?: string
+}
+
 export interface FormEvent {
   event_type: 'form_start' | 'form_field' | 'form_submit' | 'form_success'
   form_id: string
@@ -22,6 +30,10 @@ export interface FormEvent {
   time_to_submit_ms?: number
   is_conversion?: boolean
   submit_source?: 'submit' | 'click' | 'thank_you'
+  // LOA-482: Captured form field data (privacy-safe)
+  fields?: FormFieldData[]
+  // LOA-482: Extracted email if found in form
+  email_submitted?: string
 }
 
 export interface FormTrackerConfig {
@@ -31,6 +43,10 @@ export interface FormTrackerConfig {
   trackableFields: string[]
   // Patterns for thank-you page detection
   thankYouPatterns: RegExp[]
+  // LOA-482: Whether to capture form field values on submission
+  captureFieldValues: boolean
+  // LOA-482: Maximum length for field values (truncate for privacy)
+  maxFieldValueLength: number
   // Callback for form events
   onFormEvent?: (event: FormEvent) => void
 }
@@ -41,10 +57,12 @@ const DEFAULT_CONFIG: FormTrackerConfig = {
     'credit', 'card', 'cvv', 'cvc',
     'ssn', 'social',
     'secret', 'token', 'key',
+    'pin', 'security', 'answer',
   ],
   trackableFields: [
     'email', 'name', 'phone', 'company',
     'first', 'last', 'city', 'country',
+    'domain', 'website', 'url', 'organization',
   ],
   thankYouPatterns: [
     /thank[-_]?you/i,
@@ -53,6 +71,9 @@ const DEFAULT_CONFIG: FormTrackerConfig = {
     /submitted/i,
     /complete/i,
   ],
+  // LOA-482: Enable field value capture by default
+  captureFieldValues: true,
+  maxFieldValueLength: 200,
 }
 
 export class FormTracker {
@@ -146,6 +167,9 @@ export class FormTracker {
 
     const formId = this.getFormId(form)
     const startTime = this.formStartTimes.get(formId)
+    
+    // LOA-482: Capture form field values with privacy sanitization
+    const { fields, emailSubmitted } = this.captureFormFields(form)
 
     this.emitEvent({
       event_type: 'form_submit',
@@ -154,7 +178,79 @@ export class FormTracker {
       time_to_submit_ms: startTime ? Date.now() - startTime : undefined,
       is_conversion: true,
       submit_source: 'submit',
+      fields: fields.length > 0 ? fields : undefined,
+      email_submitted: emailSubmitted,
     })
+  }
+  
+  /**
+   * LOA-482: Capture form field values with privacy-safe sanitization
+   * - Never captures sensitive fields (password, credit card, etc.)
+   * - Truncates values to maxFieldValueLength
+   * - Extracts email if found
+   */
+  private captureFormFields(form: HTMLFormElement): { fields: FormFieldData[], emailSubmitted?: string } {
+    const fields: FormFieldData[] = []
+    let emailSubmitted: string | undefined
+    
+    if (!this.config.captureFieldValues) {
+      return { fields, emailSubmitted }
+    }
+    
+    try {
+      const formData = new FormData(form)
+      
+      for (const [name, value] of formData.entries()) {
+        // Skip sensitive fields entirely
+        if (this.isSensitiveField(name)) {
+          continue
+        }
+        
+        // Get the input element to determine type
+        const input = form.elements.namedItem(name) as HTMLInputElement | null
+        const inputType = input?.type || 'text'
+        
+        // Skip file inputs
+        if (inputType === 'file' || value instanceof File) {
+          continue
+        }
+        
+        const stringValue = String(value)
+        
+        // Check for email field
+        if (this.isEmailField(name, stringValue)) {
+          emailSubmitted = stringValue.substring(0, 254) // Max email length
+        }
+        
+        // Truncate value for privacy
+        const truncatedValue = stringValue.length > this.config.maxFieldValueLength
+          ? stringValue.substring(0, this.config.maxFieldValueLength) + '...'
+          : stringValue
+        
+        fields.push({
+          name: this.sanitizeFieldName(name),
+          type: inputType,
+          value: truncatedValue,
+        })
+      }
+    } catch (err) {
+      // Silent fail - don't break form submission
+      console.warn('[Loamly] Failed to capture form fields:', err)
+    }
+    
+    return { fields, emailSubmitted }
+  }
+  
+  /**
+   * Check if a field contains an email
+   */
+  private isEmailField(fieldName: string, value: string): boolean {
+    const lowerName = fieldName.toLowerCase()
+    // Check if field name suggests email
+    const isEmailName = lowerName.includes('email') || lowerName === 'e-mail'
+    // Simple email validation regex
+    const isEmailValue = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    return isEmailName && isEmailValue
   }
 
   private handleClick = (e: Event): void => {
@@ -162,10 +258,13 @@ export class FormTracker {
     
     // Check for HubSpot submit button
     if (target.closest('.hs-button') || target.closest('[type="submit"]')) {
-      const form = target.closest('form')
+      const form = target.closest('form') as HTMLFormElement | null
       if (form && form.classList.contains('hs-form')) {
         const formId = this.getFormId(form)
         const startTime = this.formStartTimes.get(formId)
+        
+        // LOA-482: Capture form field values for HubSpot forms
+        const { fields, emailSubmitted } = this.captureFormFields(form)
 
         this.emitEvent({
           event_type: 'form_submit',
@@ -174,6 +273,8 @@ export class FormTracker {
           time_to_submit_ms: startTime ? Date.now() - startTime : undefined,
           is_conversion: true,
           submit_source: 'click',
+          fields: fields.length > 0 ? fields : undefined,
+          email_submitted: emailSubmitted,
         })
       }
     }

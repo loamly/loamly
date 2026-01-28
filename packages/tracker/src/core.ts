@@ -17,44 +17,44 @@
  * @module @loamly/tracker
  */
 
-import { VERSION, DEFAULT_CONFIG } from './config'
-import { detectNavigationType } from './detection/navigation-timing'
-import { detectAIFromReferrer, detectAIFromUTM } from './detection/referrer'
-import { 
-  BehavioralClassifier, 
-  type BehavioralClassificationResult 
-} from './detection/behavioral-classifier'
-import {
-  FocusBlurAnalyzer,
-  type FocusBlurResult
-} from './detection/focus-blur'
-import {
-  AgenticBrowserAnalyzer,
-  type AgenticDetectionResult
-} from './detection/agentic-browser'
-import { EventQueue } from './infrastructure/event-queue'
-import { PingService } from './infrastructure/ping'
+import { FormTracker, type FormEvent } from './behavioral/form-tracker'
 import { ScrollTracker, type ScrollEvent } from './behavioral/scroll-tracker'
 import { TimeTracker, type TimeEvent } from './behavioral/time-tracker'
-import { FormTracker, type FormEvent } from './behavioral/form-tracker'
+import { DEFAULT_CONFIG, VERSION } from './config'
+import {
+    AgenticBrowserAnalyzer,
+    type AgenticDetectionResult
+} from './detection/agentic-browser'
+import {
+    BehavioralClassifier,
+    type BehavioralClassificationResult
+} from './detection/behavioral-classifier'
+import {
+    FocusBlurAnalyzer,
+    type FocusBlurResult
+} from './detection/focus-blur'
+import { detectNavigationType } from './detection/navigation-timing'
+import { detectAIFromReferrer, detectAIFromUTM } from './detection/referrer'
+import { EventQueue } from './infrastructure/event-queue'
+import { PingService } from './infrastructure/ping'
 import { SPARouter, type NavigationEvent } from './spa/router'
-import { 
-  getVisitorId, 
-  getSessionId, 
-  extractUTMParams, 
-  truncateText,
-  safeFetch,
-  sendBeacon 
-} from './utils'
-import type { 
-  LoamlyConfig, 
-  LoamlyTracker, 
-  TrackEventOptions, 
-  NavigationTiming,
-  AIDetectionResult,
-  BehavioralMLResult,
-  FocusBlurMLResult
+import type {
+    AIDetectionResult,
+    BehavioralMLResult,
+    FocusBlurMLResult,
+    LoamlyConfig,
+    LoamlyTracker,
+    NavigationTiming,
+    TrackEventOptions
 } from './types'
+import {
+    extractUTMParams,
+    getSessionId,
+    getVisitorId,
+    safeFetch,
+    sendBeacon,
+    truncateText
+} from './utils'
 
 // State
 let config: LoamlyConfig & { apiHost: string } = { apiHost: DEFAULT_CONFIG.apiHost }
@@ -423,6 +423,9 @@ function setupAdvancedBehavioralTracking(features: FeatureFlags): void {
           submit_source: submitSource,
           is_inferred: isSuccessEvent,
           time_to_submit_seconds: event.time_to_submit_ms ? Math.round(event.time_to_submit_ms / 1000) : null,
+          // LOA-482: Include captured form field values
+          fields: event.fields || null,
+          email_submitted: event.email_submitted || null,
         })
       },
     })
